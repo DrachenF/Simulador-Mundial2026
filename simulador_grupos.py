@@ -160,19 +160,31 @@ def procesar_grupo(nombre_grupo: str, ruta_grupos: str) -> List[Dict[str, object
 
 
 def _seleccionar_grupos() -> List[str]:
-    """Solicita al usuario qué grupos procesar y devuelve la lista correspondiente."""
+    """Obtiene automáticamente los grupos disponibles en grupos.csv."""
 
-    opcion = input("Ingrese el grupo a procesar (A-L) o 'todos': ").strip().upper()
-    if opcion in {"TODOS", "ALL", ""}:
-        return [chr(codigo) for codigo in range(ord("A"), ord("L") + 1)]
-    return [opcion]
+    # El recorrido del archivo de grupos ya se hizo en main, pero dejamos esta
+    # función por compatibilidad de firmas y claridad de responsabilidades.
+    try:
+        datos = cargar_grupos("grupos.csv")
+    except FileNotFoundError:
+        return []
+
+    grupos_unicos = []
+    vistos = set()
+    for registro in datos:
+        grupo = str(registro.get("grupo", "")).upper()
+        if grupo and grupo not in vistos:
+            grupos_unicos.append(grupo)
+            vistos.add(grupo)
+
+    return grupos_unicos
 
 
 def main() -> None:
     """Punto de entrada del programa.
 
-    Carga los grupos, solicita al usuario los grupos a procesar, procesa cada
-    uno y finalmente escribe el archivo grupos.csv actualizado.
+    Carga los grupos, detecta automáticamente los grupos a procesar, procesa
+    cada uno y finalmente escribe el archivo grupos.csv actualizado.
     """
 
     ruta_grupos = "grupos.csv"
@@ -186,12 +198,16 @@ def main() -> None:
         return
 
     grupos_a_procesar = _seleccionar_grupos()
+    if not grupos_a_procesar:
+        print("No se detectaron grupos para procesar en grupos.csv.")
+        return
+
     for grupo in grupos_a_procesar:
         datos_grupos = procesar_grupo(grupo, ruta_grupos)
 
     # Guardar nuevamente para asegurar que cualquier cambio quede persistido.
     guardar_grupos(ruta_grupos, datos_grupos)
-    print("Actualización completada.")
+    print("Actualización completada para todos los grupos detectados.")
 
 
 if __name__ == "__main__":
