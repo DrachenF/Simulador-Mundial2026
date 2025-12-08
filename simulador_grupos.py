@@ -8,6 +8,8 @@ import csv
 import os
 from typing import Dict, List
 
+RUTA_RESULTADOS = "ResulatoGrupos.csv"
+
 # Campos esperados en el archivo grupos.csv
 COLUMNAS_GRUPOS = [
     "grupo",
@@ -205,6 +207,59 @@ def _imprimir_tabla_grupo(
         )
 
 
+def _generar_resultado_final(grupos: List[Dict[str, object]]) -> List[Dict[str, object]]:
+    """Genera una lista con puesto asignado para cada grupo ordenado."""
+
+    agrupados: Dict[str, List[Dict[str, object]]] = {}
+    for equipo in grupos:
+        agrupados.setdefault(equipo["grupo"], []).append(equipo)
+
+    resultado: List[Dict[str, object]] = []
+    for nombre_grupo in sorted(agrupados.keys()):
+        ordenados = sorted(
+            agrupados[nombre_grupo],
+            key=lambda fila: (
+                -fila["pts"],
+                -fila["DG"],
+                -fila["GF"],
+                fila["pais"],
+            ),
+        )
+        for puesto, equipo in enumerate(ordenados, start=1):
+            fila = dict(equipo)
+            fila["puesto"] = puesto
+            resultado.append(fila)
+    return resultado
+
+
+def guardar_resultados_finales(ruta: str, grupos: List[Dict[str, object]]) -> None:
+    """Guarda el archivo final con el puesto 1-4 por grupo."""
+
+    columnas = COLUMNAS_GRUPOS + ["puesto"]
+    with open(ruta, "w", newline="", encoding="utf-8") as archivo:
+        escritor = csv.DictWriter(archivo, fieldnames=columnas)
+        escritor.writeheader()
+        for registro in grupos:
+            fila = {clave: registro.get(clave, "") for clave in columnas}
+            escritor.writerow(fila)
+
+
+def imprimir_resultados_finales(grupos: List[Dict[str, object]]) -> None:
+    """Imprime en consola el archivo final con puestos."""
+
+    if not grupos:
+        print("No hay datos para generar el archivo final.")
+        return
+
+    print("Contenido de ResulatoGrupos.csv:")
+    print("grupo,pais,pj,w,d,l,GF,GC,DG,pts,puesto")
+    for registro in grupos:
+        print(
+            f"{registro['grupo']},{registro['pais']},{registro['pj']},{registro['w']},{registro['d']},"
+            f"{registro['l']},{registro['GF']},{registro['GC']},{registro['DG']},{registro['pts']},{registro['puesto']}"
+        )
+
+
 def main() -> None:
     """Punto de entrada del programa.
 
@@ -237,6 +292,9 @@ def main() -> None:
 
         if seleccion.lower() == "parar":
             print("Proceso finalizado por el usuario.")
+            datos_finales = _generar_resultado_final(cargar_grupos(ruta_grupos))
+            guardar_resultados_finales(RUTA_RESULTADOS, datos_finales)
+            imprimir_resultados_finales(datos_finales)
             break
 
         if not seleccion:
