@@ -176,32 +176,41 @@ def procesar_grupo(nombre_grupo: str, ruta_grupos: str) -> List[Dict[str, object
     return grupos
 
 
-def _seleccionar_grupos() -> List[str]:
-    """Obtiene automáticamente los grupos disponibles en grupos.csv."""
+def _imprimir_tabla_grupo(
+    grupos: List[Dict[str, object]], nombre_grupo: str
+) -> None:
+    """Imprime la tabla de un grupo ordenada por criterios de desempate."""
 
-    # El recorrido del archivo de grupos ya se hizo en main, pero dejamos esta
-    # función por compatibilidad de firmas y claridad de responsabilidades.
-    try:
-        datos = cargar_grupos("grupos.csv")
-    except FileNotFoundError:
-        return []
+    filtro = [g for g in grupos if g["grupo"] == nombre_grupo]
+    if not filtro:
+        print(f"No hay equipos cargados para el grupo {nombre_grupo}.")
+        return
 
-    grupos_unicos = []
-    vistos = set()
-    for registro in datos:
-        grupo = str(registro.get("grupo", "")).upper()
-        if grupo and grupo not in vistos:
-            grupos_unicos.append(grupo)
-            vistos.add(grupo)
+    ordenados = sorted(
+        filtro,
+        key=lambda fila: (
+            -fila["pts"],
+            -fila["DG"],
+            -fila["GF"],
+            fila["pais"],
+        ),
+    )
 
-    return grupos_unicos
+    print(f"Tabla del grupo {nombre_grupo} (ordenada por pts, DG, GF):")
+    print("puesto,pais,pj,w,d,l,GF,GC,DG,pts")
+    for puesto, equipo in enumerate(ordenados, start=1):
+        print(
+            f"{puesto},{equipo['pais']},{equipo['pj']},{equipo['w']},{equipo['d']},{equipo['l']},"
+            f"{equipo['GF']},{equipo['GC']},{equipo['DG']},{equipo['pts']}"
+        )
 
 
 def main() -> None:
     """Punto de entrada del programa.
 
-    Carga los grupos, detecta automáticamente los grupos a procesar, procesa
-    cada uno y finalmente escribe el archivo grupos.csv actualizado.
+    Carga los grupos, solicita por consola qué grupo procesar y luego lee el
+    archivo de resultados correspondiente para recalcular las estadísticas.
+    Al final muestra la tabla del grupo ordenada por criterios de desempate.
     """
 
     ruta_grupos = "grupos.csv"
@@ -216,18 +225,29 @@ def main() -> None:
 
     imprimir_grupos(datos_grupos)
 
-    grupos_a_procesar = _seleccionar_grupos()
-    if not grupos_a_procesar:
+    grupos_disponibles = sorted({registro["grupo"] for registro in datos_grupos})
+    if not grupos_disponibles:
         print("No se detectaron grupos para procesar en grupos.csv.")
         return
 
-    for grupo in grupos_a_procesar:
-        datos_grupos = procesar_grupo(grupo, ruta_grupos)
+    seleccion = input(
+        "¿Qué grupo deseas actualizar (A-L)? Deja vacío para cancelar: "
+    ).strip().upper()
 
-    # Guardar nuevamente para asegurar que cualquier cambio quede persistido.
-    guardar_grupos(ruta_grupos, datos_grupos)
-    imprimir_grupos(datos_grupos)
-    print("Actualización completada para todos los grupos detectados.")
+    if not seleccion:
+        print("Operación cancelada por el usuario. No se procesó ningún grupo.")
+        return
+
+    if seleccion not in grupos_disponibles:
+        print(
+            f"El grupo {seleccion} no está registrado en grupos.csv."
+            f" Grupos disponibles: {', '.join(grupos_disponibles)}"
+        )
+        return
+
+    datos_grupos = procesar_grupo(seleccion, ruta_grupos)
+    _imprimir_tabla_grupo(datos_grupos, seleccion)
+    print(f"Actualización completada para el grupo {seleccion}.")
 
 
 if __name__ == "__main__":
