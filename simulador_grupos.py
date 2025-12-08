@@ -55,6 +55,33 @@ def cargar_grupos(ruta_grupos: str) -> List[Dict[str, object]]:
     return grupos
 
 
+def sincronizar_resultados_con_grupos(
+    ruta_grupos: str, ruta_resultados: str
+) -> None:
+    """Si ya existe ResultadoGrupos.csv, lo iguala al contenido de grupos.csv.
+
+    Copia todos los equipos y sus estadísticas actuales del archivo de grupos y
+    crea en el archivo de resultados un campo adicional de puesto inicializado
+    en cero, permitiendo arrancar siempre desde la base oficial de grupos.
+    """
+
+    if not os.path.exists(ruta_resultados):
+        return
+
+    base = cargar_grupos(ruta_grupos)
+    columnas = COLUMNAS_GRUPOS + ["puesto"]
+    with open(ruta_resultados, "w", newline="", encoding="utf-8") as archivo:
+        escritor = csv.DictWriter(archivo, fieldnames=columnas)
+        escritor.writeheader()
+        for registro in base:
+            fila = {clave: registro.get(clave, 0) for clave in COLUMNAS_GRUPOS}
+            fila["puesto"] = 0
+            escritor.writerow(fila)
+    print(
+        f"Archivo {ruta_resultados} sincronizado con los datos actuales de {ruta_grupos}."
+    )
+
+
 def cargar_datos_base(ruta_resultados: str, ruta_grupos: str) -> List[Dict[str, object]]:
     """Carga primero ResultadoGrupos.csv si existe, si no grupos.csv.
 
@@ -293,6 +320,19 @@ def main() -> None:
     """
 
     ruta_grupos = "grupos.csv"
+    if os.path.exists(RUTA_RESULTADOS):
+        try:
+            sincronizar_resultados_con_grupos(ruta_grupos, RUTA_RESULTADOS)
+        except FileNotFoundError:
+            print(
+                "No se encontró el archivo grupos.csv para sincronizar "
+                f"{RUTA_RESULTADOS}."
+            )
+            return
+        except ValueError as error:
+            print(f"Error al sincronizar archivos base: {error}")
+            return
+
     origen_inicial = RUTA_RESULTADOS if os.path.exists(RUTA_RESULTADOS) else ruta_grupos
     try:
         datos_grupos = cargar_datos_base(RUTA_RESULTADOS, ruta_grupos)
