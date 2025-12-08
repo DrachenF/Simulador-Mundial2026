@@ -208,9 +208,9 @@ def _imprimir_tabla_grupo(
 def main() -> None:
     """Punto de entrada del programa.
 
-    Carga los grupos, solicita por consola qué grupo procesar y luego lee el
-    archivo de resultados correspondiente para recalcular las estadísticas.
-    Al final muestra la tabla del grupo ordenada por criterios de desempate.
+    Carga los grupos y permite actualizar múltiples grupos de manera interactiva
+    hasta que el usuario escriba "parar". Tras procesar cada grupo, se muestra
+    la tabla ordenada por criterios de desempate.
     """
 
     ruta_grupos = "grupos.csv"
@@ -230,24 +230,30 @@ def main() -> None:
         print("No se detectaron grupos para procesar en grupos.csv.")
         return
 
-    seleccion = input(
-        "¿Qué grupo deseas actualizar (A-L)? Deja vacío para cancelar: "
-    ).strip().upper()
+    while True:
+        seleccion = input(
+            "¿Qué grupo deseas actualizar (A-L)? Escribe 'parar' para terminar: "
+        ).strip()
 
-    if not seleccion:
-        print("Operación cancelada por el usuario. No se procesó ningún grupo.")
-        return
+        if seleccion.lower() == "parar":
+            print("Proceso finalizado por el usuario.")
+            break
 
-    if seleccion not in grupos_disponibles:
-        print(
-            f"El grupo {seleccion} no está registrado en grupos.csv."
-            f" Grupos disponibles: {', '.join(grupos_disponibles)}"
-        )
-        return
+        if not seleccion:
+            print("No ingresaste un grupo. Intenta de nuevo o escribe 'parar' para salir.")
+            continue
 
-    datos_grupos = procesar_grupo(seleccion, ruta_grupos)
-    _imprimir_tabla_grupo(datos_grupos, seleccion)
-    print(f"Actualización completada para el grupo {seleccion}.")
+        seleccion = seleccion.upper()
+        if seleccion not in grupos_disponibles:
+            print(
+                f"El grupo {seleccion} no está registrado en grupos.csv."
+                f" Grupos disponibles: {', '.join(grupos_disponibles)}"
+            )
+            continue
+
+        datos_grupos = procesar_grupo(seleccion, ruta_grupos)
+        _imprimir_tabla_grupo(datos_grupos, seleccion)
+        print(f"Actualización completada para el grupo {seleccion}.")
 
 
 if __name__ == "__main__":
