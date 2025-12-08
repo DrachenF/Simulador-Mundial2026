@@ -1,6 +1,6 @@
 """Utilidades para generar llaves a partir de los terceros lugares.
 
-Lee `ResulatoGrupos.csv`, filtra los equipos en puesto 3, los ordena por
+Lee `ResultadoGrupos.csv`, filtra los equipos en puesto 3, los ordena por
 criterios de desempate y muestra los grupos de los cuatro equipos ubicados
 más abajo en esa lista.
 """
@@ -8,7 +8,7 @@ más abajo en esa lista.
 import csv
 from typing import Dict, List
 
-RUTA_RESULTADOS = "ResulatoGrupos.csv"
+RUTA_RESULTADOS = "ResultadoGrupos.csv"
 
 
 def _a_entero(valor: str) -> int:
@@ -95,7 +95,9 @@ def main() -> None:
     try:
         resultados = cargar_resultados()
     except FileNotFoundError:
-        print("No se encontró el archivo ResulatoGrupos.csv en el directorio actual.")
+        print(
+            "No se encontró el archivo ResultadoGrupos.csv en el directorio actual."
+        )
         return
     except ValueError as error:
         print(f"Error al leer el archivo: {error}")
