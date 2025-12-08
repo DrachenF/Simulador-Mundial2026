@@ -8,7 +8,7 @@ import csv
 import os
 from typing import Dict, List
 
-RUTA_RESULTADOS = "ResulatoGrupos.csv"
+RUTA_RESULTADOS = "ResultadoGrupos.csv"
 
 # Campos esperados en el archivo grupos.csv
 COLUMNAS_GRUPOS = [
@@ -55,14 +55,39 @@ def cargar_grupos(ruta_grupos: str) -> List[Dict[str, object]]:
     return grupos
 
 
-def imprimir_grupos(grupos: List[Dict[str, object]]) -> None:
-    """Muestra en consola el contenido cargado de grupos.csv."""
+def cargar_datos_base(ruta_resultados: str, ruta_grupos: str) -> List[Dict[str, object]]:
+    """Carga primero ResultadoGrupos.csv si existe, si no grupos.csv.
+
+    Devuelve la estructura base para trabajar durante la sesión sin modificar
+    el archivo grupos.csv.
+    """
+
+    if os.path.exists(ruta_resultados):
+        datos: List[Dict[str, object]] = []
+        with open(ruta_resultados, newline="", encoding="utf-8") as archivo:
+            lector = csv.DictReader(archivo)
+            if lector.fieldnames is None:
+                raise ValueError("El archivo de resultados no tiene encabezados válidos.")
+            for fila in lector:
+                registro: Dict[str, object] = {"grupo": fila.get("grupo", "").strip().upper()}
+                registro["pais"] = fila.get("pais", "").strip()
+                for campo in COLUMNAS_GRUPOS[2:]:
+                    registro[campo] = _a_entero(fila.get(campo, "0"))
+                registro["puesto"] = _a_entero(fila.get("puesto", "0"))
+                datos.append(registro)
+        return datos
+
+    return cargar_grupos(ruta_grupos)
+
+
+def imprimir_grupos(grupos: List[Dict[str, object]], origen: str = "grupos.csv") -> None:
+    """Muestra en consola el contenido cargado desde la fuente indicada."""
 
     if not grupos:
         print("No hay información de grupos para mostrar.")
         return
 
-    print("Contenido leído de grupos.csv:")
+    print(f"Contenido leído de {origen}:")
     print("grupo,pais,pj,w,d,l,GF,GC,DG,pts")
     for registro in sorted(grupos, key=lambda fila: (fila["grupo"], fila["pais"])):
         print(
@@ -73,9 +98,10 @@ def imprimir_grupos(grupos: List[Dict[str, object]]) -> None:
 
 
 def guardar_grupos(ruta_grupos: str, datos: List[Dict[str, object]]) -> None:
-    """Escribe los datos actualizados en el archivo grupos.csv.
+    """Escribe los datos actualizados en un archivo con columnas base.
 
-    Se conservan las columnas en el orden definido por COLUMNAS_GRUPOS.
+    Esta función se conserva para reutilizar el formato original, pero no se
+    utiliza para sobrescribir grupos.csv en el flujo interactivo.
     """
 
     with open(ruta_grupos, "w", newline="", encoding="utf-8") as archivo:
@@ -119,11 +145,11 @@ def _procesar_partido(equipo1: Dict[str, object], equipo2: Dict[str, object], go
         equipo2["pts"] += 1
 
 
-def procesar_grupo(nombre_grupo: str, ruta_grupos: str) -> List[Dict[str, object]]:
+def procesar_grupo(nombre_grupo: str, datos: List[Dict[str, object]]) -> List[Dict[str, object]]:
     """Procesa un grupo específico usando su archivo de partidos.
 
-    Lee grupos.csv, procesa el archivo de partidos del grupo y vuelve a escribir
-    el archivo de grupos con las estadísticas recalculadas.
+    Trabaja sobre la lista de datos en memoria y devuelve la misma referencia
+    con las estadísticas actualizadas; no modifica grupos.csv en disco.
     """
 
     grupo_objetivo = nombre_grupo.strip().upper()
@@ -131,14 +157,13 @@ def procesar_grupo(nombre_grupo: str, ruta_grupos: str) -> List[Dict[str, object
 
     if not os.path.exists(archivo_partidos):
         print(f"No se encontró el archivo de partidos: {archivo_partidos}")
-        return cargar_grupos(ruta_grupos)
+        return datos
 
-    grupos = cargar_grupos(ruta_grupos)
-    equipos_grupo = [equipo for equipo in grupos if equipo["grupo"] == grupo_objetivo]
+    equipos_grupo = [equipo for equipo in datos if equipo["grupo"] == grupo_objetivo]
 
     if not equipos_grupo:
-        print(f"No hay equipos registrados para el grupo {grupo_objetivo} en {ruta_grupos}.")
-        return grupos
+        print(f"No hay equipos registrados para el grupo {grupo_objetivo}.")
+        return datos
 
     for equipo in equipos_grupo:
         _reiniciar_estadisticas(equipo)
@@ -147,7 +172,7 @@ def procesar_grupo(nombre_grupo: str, ruta_grupos: str) -> List[Dict[str, object
         lector = csv.DictReader(archivo)
         if lector.fieldnames is None:
             print(f"El archivo {archivo_partidos} no tiene encabezados válidos.")
-            return grupos
+            return datos
 
         mapa_equipos = {equipo["pais"]: equipo for equipo in equipos_grupo}
         for linea, fila in enumerate(lector, start=2):
@@ -174,8 +199,7 @@ def procesar_grupo(nombre_grupo: str, ruta_grupos: str) -> List[Dict[str, object
     for equipo in equipos_grupo:
         equipo["DG"] = equipo["GF"] - equipo["GC"]
 
-    guardar_grupos(ruta_grupos, grupos)
-    return grupos
+    return datos
 
 
 def _imprimir_tabla_grupo(
@@ -251,7 +275,7 @@ def imprimir_resultados_finales(grupos: List[Dict[str, object]]) -> None:
         print("No hay datos para generar el archivo final.")
         return
 
-    print("Contenido de ResulatoGrupos.csv:")
+    print(f"Contenido de {RUTA_RESULTADOS}:")
     print("grupo,pais,pj,w,d,l,GF,GC,DG,pts,puesto")
     for registro in grupos:
         print(
@@ -269,20 +293,21 @@ def main() -> None:
     """
 
     ruta_grupos = "grupos.csv"
+    origen_inicial = RUTA_RESULTADOS if os.path.exists(RUTA_RESULTADOS) else ruta_grupos
     try:
-        datos_grupos = cargar_grupos(ruta_grupos)
+        datos_grupos = cargar_datos_base(RUTA_RESULTADOS, ruta_grupos)
     except FileNotFoundError:
         print("No se encontró el archivo grupos.csv en el directorio actual.")
         return
     except ValueError as error:
-        print(f"Error al leer grupos.csv: {error}")
+        print(f"Error al leer datos de entrada: {error}")
         return
 
-    imprimir_grupos(datos_grupos)
+    imprimir_grupos(datos_grupos, origen=origen_inicial)
 
     grupos_disponibles = sorted({registro["grupo"] for registro in datos_grupos})
     if not grupos_disponibles:
-        print("No se detectaron grupos para procesar en grupos.csv.")
+        print("No se detectaron grupos para procesar en los datos cargados.")
         return
 
     while True:
@@ -292,7 +317,7 @@ def main() -> None:
 
         if seleccion.lower() == "parar":
             print("Proceso finalizado por el usuario.")
-            datos_finales = _generar_resultado_final(cargar_grupos(ruta_grupos))
+            datos_finales = _generar_resultado_final(datos_grupos)
             guardar_resultados_finales(RUTA_RESULTADOS, datos_finales)
             imprimir_resultados_finales(datos_finales)
             break
@@ -304,13 +329,16 @@ def main() -> None:
         seleccion = seleccion.upper()
         if seleccion not in grupos_disponibles:
             print(
-                f"El grupo {seleccion} no está registrado en grupos.csv."
+                f"El grupo {seleccion} no está registrado en los datos cargados."
                 f" Grupos disponibles: {', '.join(grupos_disponibles)}"
             )
             continue
 
-        datos_grupos = procesar_grupo(seleccion, ruta_grupos)
+        datos_grupos = procesar_grupo(seleccion, datos_grupos)
         _imprimir_tabla_grupo(datos_grupos, seleccion)
+        datos_finales = _generar_resultado_final(datos_grupos)
+        guardar_resultados_finales(RUTA_RESULTADOS, datos_finales)
+        print(f"Archivo {RUTA_RESULTADOS} actualizado con los puestos por grupo.")
         print(f"Actualización completada para el grupo {seleccion}.")
 
 
