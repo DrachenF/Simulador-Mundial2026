@@ -53,6 +53,23 @@ def cargar_grupos(ruta_grupos: str) -> List[Dict[str, object]]:
     return grupos
 
 
+def imprimir_grupos(grupos: List[Dict[str, object]]) -> None:
+    """Muestra en consola el contenido cargado de grupos.csv."""
+
+    if not grupos:
+        print("No hay información de grupos para mostrar.")
+        return
+
+    print("Contenido leído de grupos.csv:")
+    print("grupo,pais,pj,w,d,l,GF,GC,DG,pts")
+    for registro in sorted(grupos, key=lambda fila: (fila["grupo"], fila["pais"])):
+        print(
+            f"{registro['grupo']},{registro['pais']},{registro['pj']},{registro['w']},"
+            f"{registro['d']},{registro['l']},{registro['GF']},{registro['GC']},"
+            f"{registro['DG']},{registro['pts']}"
+        )
+
+
 def guardar_grupos(ruta_grupos: str, datos: List[Dict[str, object]]) -> None:
     """Escribe los datos actualizados en el archivo grupos.csv.
 
@@ -197,6 +214,8 @@ def main() -> None:
         print(f"Error al leer grupos.csv: {error}")
         return
 
+    imprimir_grupos(datos_grupos)
+
     grupos_a_procesar = _seleccionar_grupos()
     if not grupos_a_procesar:
         print("No se detectaron grupos para procesar en grupos.csv.")
@@ -207,6 +226,7 @@ def main() -> None:
 
     # Guardar nuevamente para asegurar que cualquier cambio quede persistido.
     guardar_grupos(ruta_grupos, datos_grupos)
+    imprimir_grupos(datos_grupos)
     print("Actualización completada para todos los grupos detectados.")
 
 
