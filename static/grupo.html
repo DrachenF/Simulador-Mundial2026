@@ -8,11 +8,15 @@
   </head>
   <body>
     <div class="container">
-      <header>
-        <div>
+      <div class="hero">
+        <div class="hero-title">
+          <span class="pill">Editor rápido</span>
           <h1 id="title">Grupo</h1>
-          <p class="subtitle">Actualiza estadísticas directamente desde <strong>grupos.csv</strong></p>
         </div>
+        <p class="subtitle">Actualiza estadísticas directamente sobre <strong>ResultadoGrupos.csv</strong> y sincroniza la clasificación al instante.</p>
+      </div>
+      <header>
+        <p class="subtitle">Navega entre grupos</p>
         <div class="group-nav">
           <button class="button secondary" id="prev">Anterior</button>
           <button class="button secondary" id="next">Siguiente</button>
@@ -22,7 +26,7 @@
       <section>
         <p class="helper">Modifica PJ, W, D, L, GF o GC. Los puntos y la diferencia de goles se recalculan automáticamente.</p>
         <div id="form-container"></div>
-        <div style="margin-top: 16px; display: flex; gap: 8px;">
+        <div style="margin-top: 16px; display: flex; gap: 8px; align-items: center;">
           <button class="button" id="save">Actualizar</button>
           <span class="subtitle" id="status"></span>
         </div>

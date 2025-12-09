@@ -1,5 +1,6 @@
 const groupsContainer = document.getElementById("groups");
 const refreshBtn = document.getElementById("refresh");
+const statusPill = document.getElementById("status-pill");
 
 async function fetchGroups() {
   const res = await fetch("/api/groups");
@@ -57,19 +58,38 @@ function renderGroupCard(groupId, teams) {
   return card;
 }
 
+function setStatus(text, tone = "neutral") {
+  if (!statusPill) return;
+  statusPill.textContent = text;
+  statusPill.style.borderColor = tone === "error" ? "rgba(255, 99, 132, 0.4)" : "var(--border)";
+  statusPill.style.background =
+    tone === "error"
+      ? "rgba(255, 99, 132, 0.08)"
+      : "linear-gradient(135deg, rgba(95,230,201,0.08), rgba(111,163,255,0.08))";
+}
+
 async function render() {
   groupsContainer.innerHTML = "<p class='subtitle'>Cargando grupos…</p>";
+  setStatus("Sincronizando", "neutral");
   try {
     const data = await fetchGroups();
     groupsContainer.innerHTML = "";
     const groups = data.grupos;
-    Object.keys(groups)
-      .sort()
-      .forEach((g) => {
+    const keys = Object.keys(groups).sort();
+    if (!keys.length) {
+      groupsContainer.innerHTML = "<p class='subtitle'>No hay grupos registrados. Verifica que el CSV tenga datos.</p>";
+    } else {
+      keys.forEach((g) => {
         groupsContainer.appendChild(renderGroupCard(g, groups[g]));
       });
+    }
+    const source = data.gruposDisponibles?.length ? "Datos listos" : "Sin datos";
+    setStatus(source, "neutral");
   } catch (err) {
-    groupsContainer.innerHTML = `<p class='subtitle'>${err.message}</p>`;
+    groupsContainer.innerHTML =
+      "<p class='subtitle'>No pudimos cargar los grupos. ¿Ejecutaste <code>python web_app.py</code>?" +
+      " También asegúrate de tener <strong>grupos.csv</strong> o <strong>ResultadoGrupos.csv</strong> en la carpeta raíz.</p>";
+    setStatus("Error de carga", "error");
   }
 }
 

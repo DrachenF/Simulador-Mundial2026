@@ -1,12 +1,15 @@
 :root {
   color-scheme: light dark;
-  --bg: #0c0f14;
-  --card: #161b22;
-  --accent: #41d1b6;
-  --text: #e6edf3;
-  --muted: #9fb3c8;
-  --border: #1f2937;
+  --bg: #070a0f;
+  --card: rgba(18, 22, 31, 0.9);
+  --accent: #5fe6c9;
+  --accent-2: #6fa3ff;
+  --text: #e9edf5;
+  --muted: #a7b5c7;
+  --border: rgba(255, 255, 255, 0.08);
+  --glow: rgba(111, 163, 255, 0.35);
   font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  line-height: 1.5;
 }
 
 * {
@@ -15,15 +18,16 @@
 
 body {
   margin: 0;
-  background: radial-gradient(circle at 20% 20%, rgba(65, 209, 182, 0.08), transparent 30%),
-    radial-gradient(circle at 80% 10%, rgba(65, 209, 182, 0.06), transparent 30%),
+  background: radial-gradient(circle at 20% 20%, rgba(111, 163, 255, 0.08), transparent 30%),
+    radial-gradient(circle at 80% 10%, rgba(95, 230, 201, 0.08), transparent 26%),
+    radial-gradient(circle at 20% 80%, rgba(95, 230, 201, 0.05), transparent 25%),
     var(--bg);
   color: var(--text);
   min-height: 100vh;
 }
 
 header {
-  padding: 24px;
+  padding: 28px 28px 12px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -37,57 +41,101 @@ h1 {
 
 .subtitle {
   color: var(--muted);
-  margin: 4px 0 0;
-  font-size: 0.95rem;
+  margin: 6px 0 0;
+  font-size: 0.98rem;
 }
 
 .container {
   width: min(1200px, 95vw);
-  margin: 0 auto 64px;
+  margin: 0 auto 72px;
+}
+
+.hero {
+  background: linear-gradient(135deg, rgba(95, 230, 201, 0.12), rgba(111, 163, 255, 0.12));
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 22px 24px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+  margin: 16px 24px 10px;
+}
+
+.hero-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-weight: 600;
+  font-size: 0.9rem;
 }
 
 .grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-  gap: 16px;
-  padding: 0 24px 24px;
+  grid-template-columns: repeat(auto-fit, minmax(270px, 1fr));
+  gap: 18px;
+  padding: 10px 24px 24px;
 }
 
 .card {
-  background: linear-gradient(145deg, var(--card), #0d121a);
+  position: relative;
+  background: linear-gradient(165deg, var(--card), #0c111a);
   border: 1px solid var(--border);
-  border-radius: 16px;
-  padding: 16px;
-  box-shadow: 0 15px 40px rgba(0, 0, 0, 0.35);
-  backdrop-filter: blur(6px);
+  border-radius: 18px;
+  padding: 18px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(8px);
+  overflow: hidden;
+}
+
+.card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 30% 20%, rgba(95, 230, 201, 0.12), transparent 30%);
+  pointer-events: none;
 }
 
 .card header {
   padding: 0 0 12px;
-  justify-content: flex-start;
+  justify-content: space-between;
   gap: 8px;
 }
 
 .card h2 {
   margin: 0;
   font-size: 1.1rem;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .button {
-  background: var(--accent);
-  color: #041014;
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  color: #03161e;
   border: none;
-  border-radius: 10px;
+  border-radius: 12px;
   padding: 10px 14px;
   font-weight: 700;
   cursor: pointer;
-  transition: transform 0.15s ease, box-shadow 0.2s ease;
-  box-shadow: 0 10px 30px rgba(65, 209, 182, 0.3);
+  transition: transform 0.15s ease, box-shadow 0.2s ease, opacity 0.2s ease;
+  box-shadow: 0 12px 30px rgba(95, 230, 201, 0.3);
+  text-decoration: none;
 }
 
 .button:hover {
   transform: translateY(-1px);
-  box-shadow: 0 12px 40px rgba(65, 209, 182, 0.45);
+  box-shadow: 0 15px 45px rgba(111, 163, 255, 0.35);
+  opacity: 0.98;
 }
 
 .button.secondary {
@@ -101,21 +149,24 @@ h1 {
   width: 100%;
   border-collapse: collapse;
   font-size: 0.9rem;
+  position: relative;
+  z-index: 1;
 }
 
 .table th,
 .table td {
-  padding: 6px 4px;
+  padding: 8px 6px;
   text-align: center;
 }
 
 .table thead th {
   color: var(--muted);
   font-weight: 600;
+  border-bottom: 1px solid var(--border);
 }
 
 .table tbody tr:hover {
-  background: rgba(65, 209, 182, 0.05);
+  background: rgba(95, 230, 201, 0.06);
 }
 
 .table td:first-child,
@@ -124,11 +175,13 @@ h1 {
 }
 
 .badge {
-  display: inline-block;
-  padding: 4px 8px;
-  border-radius: 8px;
-  background: rgba(65, 209, 182, 0.12);
-  border: 1px solid rgba(65, 209, 182, 0.35);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 10px;
+  background: rgba(95, 230, 201, 0.1);
+  border: 1px solid rgba(95, 230, 201, 0.3);
   color: var(--accent);
   font-weight: 700;
 }
@@ -148,19 +201,19 @@ h1 {
 
 .input-row {
   display: grid;
-  grid-template-columns: 1fr repeat(6, 60px);
+  grid-template-columns: 1fr repeat(6, 70px);
   gap: 6px;
   align-items: center;
   background: rgba(255, 255, 255, 0.02);
-  padding: 8px;
-  border-radius: 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
   border: 1px solid var(--border);
 }
 
 .input-row input {
   width: 100%;
-  padding: 8px;
-  border-radius: 8px;
+  padding: 9px;
+  border-radius: 10px;
   border: 1px solid var(--border);
   background: #0b1017;
   color: var(--text);
@@ -168,12 +221,24 @@ h1 {
 
 .helper {
   color: var(--muted);
-  font-size: 0.9rem;
+  font-size: 0.95rem;
   margin-bottom: 12px;
+}
+
+.status-banner {
+  margin: 0 24px 12px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.02);
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 footer {
   text-align: center;
   color: var(--muted);
-  padding: 24px;
+  padding: 28px 16px;
 }
