@@ -8,6 +8,81 @@ async function fetchGroups() {
   return res.json();
 }
 
+async function fetchGroupsFromCsv() {
+  const opciones = ["/ResultadoGrupos.csv", "/grupos.csv"];
+  let ultimoError;
+
+  for (const url of opciones) {
+    try {
+      const res = await fetch(url);
+      if (!res.ok) {
+        ultimoError = new Error(`No se pudo leer ${url}`);
+        continue;
+      }
+      const texto = await res.text();
+      return parseCsv(texto);
+    } catch (err) {
+      ultimoError = err;
+    }
+  }
+
+  throw ultimoError ?? new Error("No se pudieron cargar los CSV locales");
+}
+
+function parseCsv(texto) {
+  const lineas = texto.trim().split(/\r?\n/);
+  const encabezados = lineas.shift()?.split(",");
+  if (!encabezados) throw new Error("CSV vacío");
+
+  const grupos = {};
+  lineas.forEach((linea) => {
+    if (!linea.trim()) return;
+    const cols = linea.split(",");
+    if (cols.length < 10) return;
+    const [grupo, pais, pj, w, d, l, GF, GC, DG, pts, puesto] = cols;
+    const equipo = {
+      grupo: grupo.trim(),
+      pais: pais.trim(),
+      pj: Number(pj) || 0,
+      w: Number(w) || 0,
+      d: Number(d) || 0,
+      l: Number(l) || 0,
+      GF: Number(GF) || 0,
+      GC: Number(GC) || 0,
+      DG: Number(DG) || 0,
+      pts: Number(pts) || 0,
+      puesto: Number(puesto) || 0,
+    };
+    grupos[equipo.grupo] = grupos[equipo.grupo] || [];
+    grupos[equipo.grupo].push(equipo);
+  });
+
+  const ordenados = {};
+  Object.keys(grupos)
+    .sort()
+    .forEach((g) => {
+      ordenados[g] = ordenarGrupo(grupos[g]);
+    });
+  return { grupos: ordenados, gruposDisponibles: Object.keys(ordenados) };
+}
+
+function ordenarGrupo(equipos) {
+  const recalculados = equipos.map((e) => ({
+    ...e,
+    DG: Number(e.GF || 0) - Number(e.GC || 0),
+    pts: Number(e.w || 0) * 3 + Number(e.d || 0),
+  }));
+
+  const ordenados = recalculados.sort((a, b) => {
+    if (b.pts !== a.pts) return b.pts - a.pts;
+    if (b.DG !== a.DG) return b.DG - a.DG;
+    if (b.GF !== a.GF) return b.GF - a.GF;
+    return a.pais.localeCompare(b.pais);
+  });
+
+  return ordenados.map((e, idx) => ({ ...e, puesto: idx + 1 }));
+}
+
 function renderGroupCard(groupId, teams) {
   const card = document.createElement("article");
   card.className = "card";
@@ -72,7 +147,14 @@ async function render() {
   groupsContainer.innerHTML = "<p class='subtitle'>Cargando grupos…</p>";
   setStatus("Sincronizando", "neutral");
   try {
-    const data = await fetchGroups();
+    let data;
+    try {
+      data = await fetchGroups();
+    } catch (apiError) {
+      console.warn("Fallo la API, usando CSV local", apiError);
+      data = await fetchGroupsFromCsv();
+      setStatus("Datos desde CSV", "neutral");
+    }
     groupsContainer.innerHTML = "";
     const groups = data.grupos;
     const keys = Object.keys(groups).sort();

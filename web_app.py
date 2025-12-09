@@ -128,6 +128,8 @@ class GruposHandler(SimpleHTTPRequestHandler):
             return self._handle_api_get()
         if self.path == "/":
             self.path = "/index.html"
+        if self.path in {"/grupos.csv", "/ResultadoGrupos.csv"}:
+            return self._serve_csv(Path(self.path.lstrip("/")))
         return super().do_GET()
 
     def do_POST(self):  # noqa: N802 - API http
@@ -197,6 +199,21 @@ class GruposHandler(SimpleHTTPRequestHandler):
         self.send_header("Content-Length", str(len(payload)))
         self.end_headers()
         self.wfile.write(payload)
+
+    def _serve_csv(self, path: Path):
+        """Sirve un CSV aun cuando no viva en el directorio estático."""
+
+        target = BASE_DIR / path
+        if not target.exists():
+            self.send_error(HTTPStatus.NOT_FOUND, "CSV no encontrado")
+            return
+
+        contenido = target.read_bytes()
+        self.send_response(HTTPStatus.OK)
+        self.send_header("Content-Type", "text/csv; charset=utf-8")
+        self.send_header("Content-Length", str(len(contenido)))
+        self.end_headers()
+        self.wfile.write(contenido)
 
 
 
