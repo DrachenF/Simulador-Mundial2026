@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Editar grupo | Simulador 2026</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <div class="container">
+      <header>
+        <div>
+          <h1 id="title">Grupo</h1>
+          <p class="subtitle">Actualiza estadísticas directamente desde <strong>grupos.csv</strong></p>
+        </div>
+        <div class="group-nav">
+          <button class="button secondary" id="prev">Anterior</button>
+          <button class="button secondary" id="next">Siguiente</button>
+          <a class="button" href="/">Volver</a>
+        </div>
+      </header>
+      <section>
+        <p class="helper">Modifica PJ, W, D, L, GF o GC. Los puntos y la diferencia de goles se recalculan automáticamente.</p>
+        <div id="form-container"></div>
+        <div style="margin-top: 16px; display: flex; gap: 8px;">
+          <button class="button" id="save">Actualizar</button>
+          <span class="subtitle" id="status"></span>
+        </div>
+      </section>
+    </div>
+    <footer>Usa las flechas para navegar grupo a grupo · 2026</footer>
+    <script src="/js/grupo.js" type="module"></script>
+  </body>
+</html>
