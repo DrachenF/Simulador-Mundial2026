@@ -88,12 +88,11 @@ function renderGroupCard(groupId, teams) {
   card.className = "card";
 
   const header = document.createElement("header");
-  const h2 = document.createElement("h2");
-  h2.textContent = `Grupo ${groupId}`;
-  const badge = document.createElement("span");
-  badge.className = "badge";
-  badge.textContent = `${teams.length} equipos`;
-  header.append(h2, badge);
+  const link = document.createElement("a");
+  link.href = `/grupo.html?g=${encodeURIComponent(groupId)}`;
+  link.className = "group-link";
+  link.textContent = `Grupo ${groupId}`;
+  header.append(link);
 
   const table = document.createElement("table");
   table.className = "table";
@@ -101,11 +100,14 @@ function renderGroupCard(groupId, teams) {
     <thead>
       <tr>
         <th>País</th>
-        <th>Pts</th>
-        <th>DG</th>
+        <th>PJ</th>
+        <th>W</th>
+        <th>D</th>
+        <th>L</th>
         <th>GF</th>
         <th>GC</th>
-        <th>PJ</th>
+        <th>DG</th>
+        <th>Pts</th>
       </tr>
     </thead>
     <tbody>
@@ -114,22 +116,20 @@ function renderGroupCard(groupId, teams) {
           (t) => `
         <tr>
           <td>${t.puesto}. ${t.pais}</td>
-          <td>${t.pts}</td>
-          <td>${t.DG}</td>
+          <td>${t.pj}</td>
+          <td>${t.w}</td>
+          <td>${t.d}</td>
+          <td>${t.l}</td>
           <td>${t.GF}</td>
           <td>${t.GC}</td>
-          <td>${t.pj}</td>
+          <td>${t.DG}</td>
+          <td>${t.pts}</td>
         </tr>`
         )
         .join("")}
     </tbody>`;
 
-  const link = document.createElement("a");
-  link.href = `/grupo.html?g=${encodeURIComponent(groupId)}`;
-  link.className = "button";
-  link.textContent = "Editar resultados";
-
-  card.append(header, table, link);
+  card.append(header, table);
   return card;
 }
 

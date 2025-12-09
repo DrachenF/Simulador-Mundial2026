@@ -81,7 +81,7 @@ h1 {
 
 .grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(270px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));
   gap: 18px;
   padding: 10px 24px 24px;
 }
@@ -95,6 +95,10 @@ h1 {
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.03);
   backdrop-filter: blur(8px);
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 250px;
 }
 
 .card::after {
@@ -106,17 +110,24 @@ h1 {
 }
 
 .card header {
-  padding: 0 0 12px;
-  justify-content: space-between;
-  gap: 8px;
+  padding: 0 0 8px;
+  justify-content: flex-start;
 }
 
-.card h2 {
+.card h2,
+.group-link {
   margin: 0;
-  font-size: 1.1rem;
-  display: flex;
+  font-size: 1.05rem;
+  display: inline-flex;
   align-items: center;
   gap: 8px;
+  color: var(--text);
+  text-decoration: none;
+  font-weight: 800;
+}
+
+.group-link:hover {
+  color: var(--accent);
 }
 
 .button {
@@ -151,6 +162,7 @@ h1 {
   font-size: 0.9rem;
   position: relative;
   z-index: 1;
+  table-layout: fixed;
 }
 
 .table th,
