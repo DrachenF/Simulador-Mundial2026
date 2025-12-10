@@ -58,8 +58,8 @@ h1 {
 }
 
 .edit-layout {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-rows: auto 1fr;
   flex: 1;
   gap: 10px;
   min-height: 0;
@@ -131,19 +131,33 @@ h1 {
 }
 
 .card.compact {
-  max-width: 660px;
+  max-width: 560px;
   padding: 12px 14px;
-  margin: 4px auto 0;
+  margin: 0 auto;
 }
 
 .matches-card {
   margin: 0;
-  padding-top: 10px;
-  flex: 1;
+  padding: 0;
+  background: none;
+  border: none;
+  box-shadow: none;
   display: flex;
   flex-direction: column;
   min-height: 0;
-  overflow: hidden;
+  flex: 1;
+}
+
+.matches-panel {
+  border: 1px solid var(--border);
+  background: linear-gradient(160deg, rgba(18, 22, 31, 0.92), #0a0f18);
+  border-radius: 16px;
+  padding: 12px 14px 6px;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .matches-card .helper,
@@ -154,8 +168,8 @@ h1 {
 #matches-container {
   flex: 1;
   overflow-y: auto;
-  padding-right: 8px;
-  padding-bottom: 12px;
+  padding: 2px 8px 14px 0;
+  margin: 0;
   scroll-behavior: smooth;
 }
 
@@ -166,7 +180,7 @@ h1 {
 }
 
 .summary-card {
-  max-width: 620px;
+  max-width: 540px;
   align-self: center;
   width: 100%;
 }

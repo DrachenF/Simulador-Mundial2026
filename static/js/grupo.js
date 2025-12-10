@@ -13,6 +13,17 @@ const resetBtn = document.getElementById("reset-group");
 const statusEl = document.getElementById("status");
 const stepper = document.getElementById("stepper");
 let saveTimeout;
+let resizeHandler;
+
+function adjustMatchesHeight() {
+  if (!matchesContainer) return;
+  const footer = document.querySelector("footer");
+  const footerHeight = footer ? footer.getBoundingClientRect().height : 0;
+  const top = matchesContainer.getBoundingClientRect().top;
+  const available = window.innerHeight - top - footerHeight - 12;
+  const target = Math.max(available, 280);
+  matchesContainer.style.height = `${target}px`;
+}
 
 function renderTabla(equipos) {
   const table = document.createElement("table");
@@ -106,6 +117,7 @@ function renderMatches(jornadas) {
     });
   });
 
+  adjustMatchesHeight();
 }
 
 function renderGroup(data) {
@@ -115,6 +127,7 @@ function renderGroup(data) {
   renderTabla(data.equipos);
   const partidos = data.partidos || [];
   renderMatches(partidos);
+  adjustMatchesHeight();
 }
 
 async function loadGroup(id) {
@@ -210,4 +223,13 @@ matchesContainer?.addEventListener("input", (event) => {
   }
 });
 
+function bindResize() {
+  if (resizeHandler) {
+    window.removeEventListener("resize", resizeHandler);
+  }
+  resizeHandler = () => adjustMatchesHeight();
+  window.addEventListener("resize", resizeHandler);
+}
+
+bindResize();
 loadGroup(currentGroup);
