@@ -8,10 +8,10 @@ const tablaContainer = document.getElementById("tabla-container");
 const matchesContainer = document.getElementById("matches-container");
 const prevBtn = document.getElementById("prev");
 const nextBtn = document.getElementById("next");
-const saveBtn = document.getElementById("save");
 const resetBtn = document.getElementById("reset-group");
 const statusEl = document.getElementById("status");
 const stepper = document.getElementById("stepper");
+let saveTimeout;
 
 function renderTabla(equipos) {
   const table = document.createElement("table");
@@ -66,8 +66,8 @@ function renderMatches(jornadas) {
     jornada.partidos.forEach((partido) => {
       const local = partido.equipo1;
       const visita = partido.equipo2;
-      const goles1 = Number(partido.goles1 ?? 0);
-      const goles2 = Number(partido.goles2 ?? 0);
+      const goles1 = partido.goles1;
+      const goles2 = partido.goles2;
       const row = document.createElement("div");
       row.className = "match-row";
       row.dataset.local = local;
@@ -75,8 +75,12 @@ function renderMatches(jornadas) {
       row.dataset.jornada = jornada.jornada;
       row.innerHTML = `
         <span class="team">${local}</span>
-        <input type="number" name="goles1" min="0" value="${goles1}" aria-label="Goles de ${local}" />
-        <input type="number" name="goles2" min="0" value="${goles2}" aria-label="Goles de ${visita}" />
+        <input type="number" name="goles1" min="0" value="${
+          goles1 === undefined || goles1 === null ? "" : goles1
+        }" aria-label="Goles de ${local}" />
+        <input type="number" name="goles2" min="0" value="${
+          goles2 === undefined || goles2 === null ? "" : goles2
+        }" aria-label="Goles de ${visita}" />
         <span class="team">${visita}</span>
       `;
       matchesContainer.appendChild(row);
@@ -131,7 +135,7 @@ function collectData() {
 }
 
 async function save() {
-  statusEl.textContent = "Guardando...";
+  statusEl.textContent = "Actualizando...";
   try {
     const partidos = collectData();
     const res = await fetch(`/api/groups/${currentGroup}`, {
@@ -140,12 +144,24 @@ async function save() {
       body: JSON.stringify({ partidos }),
     });
     if (!res.ok) throw new Error("No se pudo guardar");
-    await res.json();
+    const data = await res.json();
+    if (data?.equipos) {
+      renderTabla(data.equipos);
+    }
     statusEl.textContent = "Actualizado";
-    loadGroup(currentGroup);
   } catch (err) {
     statusEl.textContent = err.message;
   }
+}
+
+function triggerAutoSave() {
+  statusEl.textContent = "Actualizando...";
+  if (saveTimeout) {
+    clearTimeout(saveTimeout);
+  }
+  saveTimeout = setTimeout(() => {
+    save();
+  }, 250);
 }
 
 async function resetGroup() {
@@ -162,7 +178,11 @@ async function resetGroup() {
 
 prevBtn?.addEventListener("click", () => cycleGroup(-1));
 nextBtn?.addEventListener("click", () => cycleGroup(1));
-saveBtn?.addEventListener("click", save);
 resetBtn?.addEventListener("click", resetGroup);
+matchesContainer?.addEventListener("input", (event) => {
+  if (event.target && event.target.matches("input[type='number']")) {
+    triggerAutoSave();
+  }
+});
 
 loadGroup(currentGroup);

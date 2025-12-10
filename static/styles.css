@@ -180,6 +180,13 @@ h1 {
   font-size: 1.1rem;
 }
 
+.button.icon-text {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding-inline: 12px;
+}
+
 .table {
   width: 100%;
   border-collapse: collapse;
@@ -269,12 +276,24 @@ h1 {
   padding: 10px;
   border-radius: 10px;
   border: 1px solid var(--border);
-  background: #0b1017;
-  color: var(--text);
+  background: #ffffff;
+  color: #0a0f1a;
+  text-align: center;
 }
 
 .match-row .team {
   font-weight: 700;
+  text-align: center;
+}
+
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+input[type="number"] {
+  -moz-appearance: textfield;
 }
 
 .journey-title {
