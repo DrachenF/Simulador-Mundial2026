@@ -24,22 +24,20 @@
           <button class="button secondary icon" id="next" aria-label="Grupo siguiente">⟶</button>
         </div>
       </header>
-      <div class="edit-layout">
-        <section class="card sticky-panel compact summary-card">
-          <p class="helper">Resumen del grupo recalculado al vuelo.</p>
-          <div id="tabla-container"></div>
-        </section>
-        <section class="matches-card">
-          <div class="matches-panel">
-            <p class="helper">Captura los marcadores de los 6 partidos. Los puntos y la diferencia de goles se recalculan automáticamente.</p>
-            <div class="journey-nav" id="journey-nav"></div>
-            <div id="matches-container"></div>
-          </div>
-          <div class="form-actions">
-            <span class="subtitle" id="status"></span>
-          </div>
-        </section>
-      </div>
+
+      <section class="card compact summary-card">
+        <p class="helper">Resumen del grupo recalculado al vuelo.</p>
+        <div id="tabla-container"></div>
+      </section>
+
+      <section class="card matches-card">
+        <p class="helper">Captura los marcadores de los 6 partidos. Los puntos y la diferencia de goles se recalculan automáticamente.</p>
+        <div class="journey-nav" id="journey-nav"></div>
+        <div id="matches-container"></div>
+        <div class="form-actions">
+          <span class="subtitle" id="status"></span>
+        </div>
+      </section>
     </div>
     <footer>Usa las flechas para navegar grupo a grupo · 2026</footer>
     <script src="./js/grupo.js" type="module"></script>
