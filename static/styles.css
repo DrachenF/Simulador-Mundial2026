@@ -27,19 +27,11 @@ body {
   scroll-behavior: smooth;
 }
 
-.page-frame {
-  height: 100vh;
+.page {
+  min-height: 100vh;
   display: flex;
   flex-direction: column;
-}
-
-.fixed-section {
-  flex: 0 0 auto;
-}
-
-.scroll-section {
-  flex: 1 1 auto;
-  overflow-y: auto;
+  gap: 6px;
 }
 
 header {
@@ -63,19 +55,24 @@ h1 {
 
 .container {
   width: min(1180px, 95vw);
-  margin: 0 auto 28px;
+  margin: 0 auto 20px;
   display: flex;
   flex-direction: column;
   gap: 12px;
 }
 
-.fixed-section .container {
-  margin-bottom: 14px;
+.summary-wrap {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  padding-top: 6px;
+  background: linear-gradient(180deg, rgba(7, 10, 15, 0.92), rgba(7, 10, 15, 0.86) 55%, transparent);
 }
 
-.scroll-section .container {
-  margin-top: 4px;
-  margin-bottom: 20px;
+.content-column {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
 .hero {
@@ -144,7 +141,7 @@ h1 {
 }
 
 .card.compact {
-  max-width: 560px;
+  max-width: 100%;
   padding: 12px 14px;
   margin: 0 auto;
 }
