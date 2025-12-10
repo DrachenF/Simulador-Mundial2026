@@ -80,8 +80,13 @@ def _ordenar_grupo(equipos: List[dict]) -> List[dict]:
     )
 
 
-def recalcular_grupo(equipos: List[dict]) -> List[dict]:
-    """Recalcula DG, pts y puesto de un grupo y devuelve una nueva lista ordenada."""
+def recalcular_grupo(equipos: List[dict], mantener_orden: bool = False) -> List[dict]:
+    """Recalcula DG, pts y puesto de un grupo.
+
+    Si ``mantener_orden`` es ``True`` devuelve los equipos en el mismo orden en el
+    que llegan, pero asignando el puesto según los criterios de desempate.
+    """
+
     actualizados: List[dict] = []
     for eq in equipos:
         w = int(eq.get("w", 0))
@@ -104,19 +109,52 @@ def recalcular_grupo(equipos: List[dict]) -> List[dict]:
             "pts": pts,
         })
 
-    ordenados = _ordenar_grupo(actualizados)
-    for idx, eq in enumerate(ordenados, start=1):
-        eq["puesto"] = idx
-    return ordenados
+    ranking = _ordenar_grupo(actualizados)
+    puestos = {eq["pais"]: idx for idx, eq in enumerate(ranking, start=1)}
+
+    if mantener_orden:
+        salida: List[dict] = []
+        for eq in equipos:
+            calculado = next((e for e in actualizados if e["pais"] == eq["pais"]), eq)
+            calculado["puesto"] = puestos.get(calculado["pais"], 0)
+            salida.append(calculado)
+        return salida
+
+    for eq in ranking:
+        eq["puesto"] = puestos.get(eq["pais"], 0)
+    return ranking
 
 
-def _generar_partidos(paises: List[str]) -> List[Tuple[str, str]]:
-    """Devuelve las 6 combinaciones de partidos para 4 equipos."""
-    partidos: List[Tuple[str, str]] = []
-    for i in range(len(paises)):
-        for j in range(i + 1, len(paises)):
-            partidos.append((paises[i], paises[j]))
-    return partidos
+def _generar_partidos(paises: List[str]) -> List[dict]:
+    """Devuelve los 6 partidos distribuidos en tres jornadas según el orden CSV."""
+
+    if len(paises) != 4:
+        raise ValueError("Se requieren exactamente 4 equipos para generar el calendario")
+
+    cabeza, segundo, tercero, cuarto = paises
+    return [
+        {
+            "jornada": 1,
+            "partidos": [
+                (cabeza, segundo),
+                (tercero, cuarto),
+            ],
+        },
+        {
+            "jornada": 2,
+            "partidos": [
+                (cabeza, tercero),
+                (segundo, cuarto),
+            ],
+        },
+        {
+            "jornada": 3,
+            "partidos": [
+                (cabeza, cuarto),
+                (segundo, tercero),
+            ],
+        },
+    ]
 
 
 def guardar_grupos(grupos: Dict[str, List[dict]]) -> None:
@@ -124,7 +162,7 @@ def guardar_grupos(grupos: Dict[str, List[dict]]) -> None:
     # Recalcular y aplanar en orden alfabético de grupo
     todas_filas: List[dict] = []
     for grupo in sorted(grupos):
-        filas = recalcular_grupo(grupos[grupo])
+        filas = recalcular_grupo(grupos[grupo], mantener_orden=True)
         for fila in filas:
             todas_filas.append({campo: fila.get(campo, 0) if campo != "pais" and campo != "grupo" else fila.get(campo, "") for campo in CSV_FIELDS})
 
@@ -192,7 +230,7 @@ def calcular_desde_partidos(
             equipos[eq1]["d"] += 1
             equipos[eq2]["d"] += 1
 
-    return recalcular_grupo(list(equipos.values()))
+    return recalcular_grupo(list(equipos.values()), mantener_orden=True)
 
 
 class GruposHandler(SimpleHTTPRequestHandler):
@@ -223,8 +261,8 @@ class GruposHandler(SimpleHTTPRequestHandler):
             data = grupos.get(grupo_id)
             if data is None:
                 return self._send_json({"error": "Grupo no encontrado"}, status=HTTPStatus.NOT_FOUND)
-            data = recalcular_grupo(data)
-            partidos = _generar_partidos(sorted(e["pais"] for e in data))
+            data = recalcular_grupo(data, mantener_orden=True)
+            partidos = _generar_partidos([e["pais"] for e in data])
             return self._send_json(
                 {
                     "grupo": grupo_id,
@@ -235,7 +273,7 @@ class GruposHandler(SimpleHTTPRequestHandler):
             )
 
         # Listado completo
-        payload = {g: recalcular_grupo(eq) for g, eq in grupos.items()}
+        payload = {g: recalcular_grupo(eq, mantener_orden=True) for g, eq in grupos.items()}
         return self._send_json({"grupos": payload, "gruposDisponibles": sorted(grupos)})
 
     def _handle_api_post(self):

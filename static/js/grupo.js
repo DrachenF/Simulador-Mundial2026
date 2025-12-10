@@ -52,26 +52,30 @@ function renderTabla(equipos) {
   tablaContainer.appendChild(table);
 }
 
-function renderMatches(partidos) {
-  partidosVigentes = partidos;
+function renderMatches(jornadas) {
+  partidosVigentes = jornadas;
   matchesContainer.innerHTML = "";
-  partidos.forEach(([local, visita], idx) => {
-    const row = document.createElement("div");
-    row.className = "match-row";
-    row.dataset.local = local;
-    row.dataset.visita = visita;
-    row.innerHTML = `
-      <span class="team">${local}</span>
-      <input type="number" name="goles1" min="0" value="0" aria-label="Goles de ${local}" />
-      <input type="number" name="goles2" min="0" value="0" aria-label="Goles de ${visita}" />
-      <span class="team">${visita}</span>
-    `;
-    matchesContainer.appendChild(row);
-    if (idx === 2) {
-      const divider = document.createElement("hr");
-      divider.className = "divider";
-      matchesContainer.appendChild(divider);
-    }
+
+  jornadas.forEach((jornada) => {
+    const titulo = document.createElement("h3");
+    titulo.className = "journey-title";
+    titulo.textContent = `Jornada ${jornada.jornada}`;
+    matchesContainer.appendChild(titulo);
+
+    jornada.partidos.forEach(([local, visita]) => {
+      const row = document.createElement("div");
+      row.className = "match-row";
+      row.dataset.local = local;
+      row.dataset.visita = visita;
+      row.dataset.jornada = jornada.jornada;
+      row.innerHTML = `
+        <span class="team">${local}</span>
+        <input type="number" name="goles1" min="0" value="0" aria-label="Goles de ${local}" />
+        <input type="number" name="goles2" min="0" value="0" aria-label="Goles de ${visita}" />
+        <span class="team">${visita}</span>
+      `;
+      matchesContainer.appendChild(row);
+    });
   });
 }
 
@@ -116,6 +120,7 @@ function collectData() {
       equipo2: row.dataset.visita,
       goles1,
       goles2,
+      jornada: Number(row.dataset.jornada || 0),
     };
   });
 }
