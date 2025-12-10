@@ -6,6 +6,7 @@ let partidosVigentes = [];
 const title = document.getElementById("title");
 const tablaContainer = document.getElementById("tabla-container");
 const matchesContainer = document.getElementById("matches-container");
+const journeyNav = document.getElementById("journey-nav");
 const prevBtn = document.getElementById("prev");
 const nextBtn = document.getElementById("next");
 const resetBtn = document.getElementById("reset-group");
@@ -53,13 +54,31 @@ function renderTabla(equipos) {
   tablaContainer.appendChild(table);
 }
 
+function renderJourneyNav(jornadas) {
+  if (!journeyNav) return;
+  journeyNav.innerHTML = "";
+  jornadas.forEach((jornada) => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "pill muted";
+    btn.textContent = `J${jornada.jornada}`;
+    btn.addEventListener("click", () => {
+      const anchor = document.getElementById(`jornada-${jornada.jornada}`);
+      anchor?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+    journeyNav.appendChild(btn);
+  });
+}
+
 function renderMatches(jornadas) {
   partidosVigentes = jornadas;
   matchesContainer.innerHTML = "";
+  renderJourneyNav(jornadas);
 
   jornadas.forEach((jornada) => {
     const titulo = document.createElement("h3");
     titulo.className = "journey-title";
+    titulo.id = `jornada-${jornada.jornada}`;
     titulo.textContent = `Jornada ${jornada.jornada}`;
     matchesContainer.appendChild(titulo);
 

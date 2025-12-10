@@ -24,6 +24,7 @@ body {
     var(--bg);
   color: var(--text);
   min-height: 100vh;
+  scroll-behavior: smooth;
 }
 
 header {
@@ -119,6 +120,12 @@ h1 {
   position: sticky;
   top: 12px;
   z-index: 5;
+}
+
+.matches-card {
+  max-height: 78vh;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
 }
 
 .card::after {
@@ -307,6 +314,7 @@ input[type="number"] {
   font-size: 1.1rem;
   color: #e6edf7;
   text-align: center;
+  scroll-margin-top: 140px;
 }
 
 .divider {
@@ -328,6 +336,25 @@ input[type="number"] {
   color: var(--muted);
   font-size: 0.95rem;
   margin-bottom: 12px;
+}
+
+.journey-nav {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+  margin: 4px 0 10px;
+}
+
+.journey-nav .pill {
+  background: rgba(255, 255, 255, 0.04);
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.journey-nav .pill:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--accent);
 }
 
 .form-actions {
