@@ -6,7 +6,6 @@ let partidosVigentes = [];
 const title = document.getElementById("title");
 const tablaContainer = document.getElementById("tabla-container");
 const matchesContainer = document.getElementById("matches-container");
-const matchesCard = document.querySelector(".matches-card");
 const journeyNav = document.getElementById("journey-nav");
 const prevBtn = document.getElementById("prev");
 const nextBtn = document.getElementById("next");
@@ -107,7 +106,6 @@ function renderMatches(jornadas) {
     });
   });
 
-  adjustMatchesHeight();
 }
 
 function renderGroup(data) {
@@ -117,18 +115,6 @@ function renderGroup(data) {
   renderTabla(data.equipos);
   const partidos = data.partidos || [];
   renderMatches(partidos);
-}
-
-function adjustMatchesHeight() {
-  if (!matchesCard) return;
-  const rect = matchesCard.getBoundingClientRect();
-  const footer = document.querySelector("footer");
-  const footerSpace = (footer?.offsetHeight || 40) + 14;
-  const available = window.innerHeight - rect.top - footerSpace;
-  const targetHeight = Math.max(520, available);
-  matchesCard.style.maxHeight = `${targetHeight}px`;
-  matchesCard.style.height = `${targetHeight}px`;
-  matchesCard.style.overflowY = "auto";
 }
 
 async function loadGroup(id) {
@@ -223,6 +209,5 @@ matchesContainer?.addEventListener("input", (event) => {
     triggerAutoSave();
   }
 });
-window.addEventListener("resize", adjustMatchesHeight);
 
 loadGroup(currentGroup);
