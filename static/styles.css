@@ -31,11 +31,23 @@ body {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 10px;
+}
+
+.sticky-shell {
+  position: sticky;
+  top: 0;
+  z-index: 8;
+  background: linear-gradient(180deg, rgba(7, 10, 15, 0.95), rgba(7, 10, 15, 0.9) 70%, transparent);
+  padding: 6px 0 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  box-shadow: 0 14px 30px rgba(0, 0, 0, 0.35);
 }
 
 header {
-  padding: 28px 28px 12px;
+  padding: 18px 20px 8px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -55,40 +67,37 @@ h1 {
 
 .container {
   width: min(1180px, 95vw);
-  margin: 0 auto 20px;
+  margin: 0 auto 16px;
   display: flex;
   flex-direction: column;
   gap: 12px;
 }
 
 .summary-wrap {
-  position: sticky;
-  top: 0;
-  z-index: 5;
-  padding-top: 6px;
-  background: linear-gradient(180deg, rgba(7, 10, 15, 0.92), rgba(7, 10, 15, 0.86) 55%, transparent);
+  padding-top: 2px;
 }
 
 .content-column {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 14px;
+  padding-top: 4px;
 }
 
 .hero {
   background: linear-gradient(135deg, rgba(95, 230, 201, 0.12), rgba(111, 163, 255, 0.12));
   border: 1px solid var(--border);
-  border-radius: 18px;
-  padding: 12px 14px;
-  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.4);
-  margin: 8px 12px 0px;
+  border-radius: 16px;
+  padding: 10px 12px;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.35);
+  margin: 6px 10px 0px;
 }
 
 .hero-title {
   display: flex;
   align-items: center;
   gap: 10px;
-  margin-bottom: 4px;
+  margin-bottom: 2px;
 }
 
 .pill {
@@ -144,6 +153,11 @@ h1 {
   max-width: 100%;
   padding: 12px 14px;
   margin: 0 auto;
+}
+
+.summary-card {
+  min-height: unset;
+  align-items: center;
 }
 
 .matches-card {

@@ -6,33 +6,35 @@
     <title>Editar grupo | Simulador 2026</title>
     <link rel="stylesheet" href="./styles.css" />
   </head>
-  <body>
-    <div class="page">
-      <div class="container">
-        <div class="hero">
-          <div class="hero-title">
-            <a class="pill link-pill" href="./index.html">⟵ Fase de grupos</a>
-            <h1 id="title">Grupo</h1>
-            <button class="button secondary icon-text" id="reset-group" type="button">⟳ Reiniciar</button>
+    <body>
+      <div class="page">
+        <div class="sticky-shell">
+          <div class="container">
+            <div class="hero">
+              <div class="hero-title">
+                <a class="pill link-pill" href="./index.html">⟵ Fase de grupos</a>
+                <h1 id="title">Grupo</h1>
+                <button class="button secondary icon-text" id="reset-group" type="button">⟳ Reiniciar</button>
+              </div>
+              <p class="subtitle">Actualiza estadísticas directamente sobre <strong>ResultadoGrupos.csv</strong> y sincroniza la clasificación al instante.</p>
+            </div>
+            <header>
+              <p class="subtitle">Navega entre grupos</p>
+              <div class="group-nav">
+                <button class="button secondary icon" id="prev" aria-label="Grupo anterior">⟵</button>
+                <div class="pill muted" id="stepper">A</div>
+                <button class="button secondary icon" id="next" aria-label="Grupo siguiente">⟶</button>
+              </div>
+            </header>
           </div>
-          <p class="subtitle">Actualiza estadísticas directamente sobre <strong>ResultadoGrupos.csv</strong> y sincroniza la clasificación al instante.</p>
-        </div>
-        <header>
-          <p class="subtitle">Navega entre grupos</p>
-          <div class="group-nav">
-            <button class="button secondary icon" id="prev" aria-label="Grupo anterior">⟵</button>
-            <div class="pill muted" id="stepper">A</div>
-            <button class="button secondary icon" id="next" aria-label="Grupo siguiente">⟶</button>
-          </div>
-        </header>
-      </div>
 
-      <div class="container summary-wrap">
-        <section class="card compact summary-card">
-          <p class="helper">Resumen del grupo recalculado al vuelo.</p>
-          <div id="tabla-container"></div>
-        </section>
-      </div>
+          <div class="container summary-wrap">
+            <section class="card compact summary-card">
+              <p class="helper">Resumen del grupo recalculado al vuelo.</p>
+              <div id="tabla-container"></div>
+            </section>
+          </div>
+        </div>
 
       <div class="container content-column">
         <section class="card matches-card">
