@@ -189,8 +189,8 @@ def _calendario_base(grupo_id: str, paises: List[str]) -> List[dict]:
                     "jornada": jornada["jornada"],
                     "equipo1": local,
                     "equipo2": visita,
-                    "goles1": 0,
-                    "goles2": 0,
+                    "goles1": None,
+                    "goles2": None,
                 }
             )
     return base
@@ -213,9 +213,27 @@ def _partidos_en_crudo(grupo_id: str, paises: List[str]) -> List[dict]:
         clave = (partido["jornada"], partido["equipo1"], partido["equipo2"])
         if clave not in index:
             continue
-        partido["goles1"] = int(index[clave].get("goles1", 0) or 0)
-        partido["goles2"] = int(index[clave].get("goles2", 0) or 0)
+        partido["goles1"] = index[clave].get("goles1")
+        partido["goles2"] = index[clave].get("goles2")
     return base
+
+
+def _limpiar_goles(valor):
+    """Convierte el marcador a entero o None si está vacío."""
+
+    if valor is None:
+        return None
+    if isinstance(valor, str):
+        valor = valor.strip()
+        if valor == "":
+            return None
+    try:
+        numero = int(valor)
+    except (TypeError, ValueError):
+        raise ValueError("Marcador inválido; usa números enteros")
+    if numero < 0:
+        raise ValueError("El marcador no puede ser negativo")
+    return numero
 
 
 def _partidos_por_jornada(partidos: List[dict]) -> List[dict]:
@@ -296,8 +314,15 @@ def calcular_desde_partidos(
         if eq1 == eq2:
             raise ValueError("Un partido no puede enfrentar al mismo equipo")
 
-        g1 = int(partido.get("goles1", 0) or 0)
-        g2 = int(partido.get("goles2", 0) or 0)
+        g1_raw = partido.get("goles1")
+        g2_raw = partido.get("goles2")
+
+        if g1_raw is None or g2_raw is None or g1_raw == "" or g2_raw == "":
+            # Partido no jugado todavía
+            continue
+
+        g1 = int(g1_raw)
+        g2 = int(g2_raw)
 
         equipos[eq1]["pj"] += 1
         equipos[eq2]["pj"] += 1
@@ -351,8 +376,8 @@ def _normalizar_partidos_para_guardar(
                 "jornada": jornada,
                 "equipo1": eq1,
                 "equipo2": eq2,
-                "goles1": int(partido.get("goles1", 0) or 0),
-                "goles2": int(partido.get("goles2", 0) or 0),
+                "goles1": _limpiar_goles(partido.get("goles1")),
+                "goles2": _limpiar_goles(partido.get("goles2")),
             }
         )
 

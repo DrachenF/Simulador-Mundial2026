@@ -115,6 +115,12 @@ h1 {
   min-height: 250px;
 }
 
+.sticky-panel {
+  position: sticky;
+  top: 12px;
+  z-index: 5;
+}
+
 .card::after {
   content: "";
   position: absolute;

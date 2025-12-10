@@ -122,8 +122,13 @@ function cycleGroup(direction) {
 function collectData() {
   const rows = Array.from(matchesContainer.querySelectorAll(".match-row"));
   return rows.map((row) => {
-    const goles1 = parseInt(row.querySelector('input[name="goles1"]').value || "0", 10);
-    const goles2 = parseInt(row.querySelector('input[name="goles2"]').value || "0", 10);
+    const val1 = row.querySelector('input[name="goles1"]').value;
+    const val2 = row.querySelector('input[name="goles2"]').value;
+
+    const parsed1 = val1.trim() === "" ? null : Number.parseInt(val1, 10);
+    const parsed2 = val2.trim() === "" ? null : Number.parseInt(val2, 10);
+    const goles1 = Number.isNaN(parsed1) ? null : parsed1;
+    const goles2 = Number.isNaN(parsed2) ? null : parsed2;
     return {
       equipo1: row.dataset.local,
       equipo2: row.dataset.visita,
