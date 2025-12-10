@@ -9,6 +9,7 @@ const matchesContainer = document.getElementById("matches-container");
 const prevBtn = document.getElementById("prev");
 const nextBtn = document.getElementById("next");
 const saveBtn = document.getElementById("save");
+const resetBtn = document.getElementById("reset-group");
 const statusEl = document.getElementById("status");
 const stepper = document.getElementById("stepper");
 
@@ -62,7 +63,11 @@ function renderMatches(jornadas) {
     titulo.textContent = `Jornada ${jornada.jornada}`;
     matchesContainer.appendChild(titulo);
 
-    jornada.partidos.forEach(([local, visita]) => {
+    jornada.partidos.forEach((partido) => {
+      const local = partido.equipo1;
+      const visita = partido.equipo2;
+      const goles1 = Number(partido.goles1 ?? 0);
+      const goles2 = Number(partido.goles2 ?? 0);
       const row = document.createElement("div");
       row.className = "match-row";
       row.dataset.local = local;
@@ -70,8 +75,8 @@ function renderMatches(jornadas) {
       row.dataset.jornada = jornada.jornada;
       row.innerHTML = `
         <span class="team">${local}</span>
-        <input type="number" name="goles1" min="0" value="0" aria-label="Goles de ${local}" />
-        <input type="number" name="goles2" min="0" value="0" aria-label="Goles de ${visita}" />
+        <input type="number" name="goles1" min="0" value="${goles1}" aria-label="Goles de ${local}" />
+        <input type="number" name="goles2" min="0" value="${goles2}" aria-label="Goles de ${visita}" />
         <span class="team">${visita}</span>
       `;
       matchesContainer.appendChild(row);
@@ -143,8 +148,21 @@ async function save() {
   }
 }
 
+async function resetGroup() {
+  statusEl.textContent = "Reiniciando grupo...";
+  try {
+    const res = await fetch(`/api/groups/${currentGroup}/reset`, { method: "POST" });
+    if (!res.ok) throw new Error("No se pudo reiniciar el grupo");
+    await loadGroup(currentGroup);
+    statusEl.textContent = "Grupo reiniciado";
+  } catch (err) {
+    statusEl.textContent = err.message;
+  }
+}
+
 prevBtn?.addEventListener("click", () => cycleGroup(-1));
 nextBtn?.addEventListener("click", () => cycleGroup(1));
 saveBtn?.addEventListener("click", save);
+resetBtn?.addEventListener("click", resetGroup);
 
 loadGroup(currentGroup);

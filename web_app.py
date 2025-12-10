@@ -22,6 +22,7 @@ BASE_DIR = Path(__file__).resolve().parent
 STATIC_DIR = BASE_DIR / "static"
 GRUPOS_CSV = BASE_DIR / "grupos.csv"
 RESULTADO_CSV = BASE_DIR / "ResultadoGrupos.csv"
+PARTIDOS_JSON = BASE_DIR / "partidos.json"
 
 CSV_FIELDS = [
     "grupo",
@@ -41,6 +42,25 @@ CSV_FIELDS = [
 def _leer_csv_activo() -> Path:
     """Devuelve el archivo de datos a usar, priorizando ResultadoGrupos.csv."""
     return RESULTADO_CSV if RESULTADO_CSV.exists() else GRUPOS_CSV
+
+
+def _cargar_partidos_guardados() -> Dict[str, List[dict]]:
+    """Carga resultados de partidos persistidos en JSON si existe."""
+
+    if not PARTIDOS_JSON.exists():
+        return {}
+
+    try:
+        contenido = json.loads(PARTIDOS_JSON.read_text(encoding="utf-8"))
+        return contenido if isinstance(contenido, dict) else {}
+    except json.JSONDecodeError:
+        return {}
+
+
+def _guardar_partidos_guardados(data: Dict[str, List[dict]]) -> None:
+    """Persiste los resultados de partidos en disco."""
+
+    PARTIDOS_JSON.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
 def _cargar_grupos_desde(ruta: Path) -> Dict[str, List[dict]]:
@@ -157,6 +177,61 @@ def _generar_partidos(paises: List[str]) -> List[dict]:
     ]
 
 
+def _calendario_base(grupo_id: str, paises: List[str]) -> List[dict]:
+    """Genera el calendario en blanco respetando el orden de los países."""
+
+    base: List[dict] = []
+    for jornada in _generar_partidos(paises):
+        for local, visita in jornada["partidos"]:
+            base.append(
+                {
+                    "grupo": grupo_id,
+                    "jornada": jornada["jornada"],
+                    "equipo1": local,
+                    "equipo2": visita,
+                    "goles1": 0,
+                    "goles2": 0,
+                }
+            )
+    return base
+
+
+def _partidos_en_crudo(grupo_id: str, paises: List[str]) -> List[dict]:
+    """Calendario plano con goles (persistidos si existen)."""
+
+    base = _calendario_base(grupo_id, paises)
+
+    guardados = _cargar_partidos_guardados().get(grupo_id, [])
+    if not isinstance(guardados, list):
+        return base
+
+    index = {
+        (int(p.get("jornada", 0) or 0), p.get("equipo1"), p.get("equipo2")): p
+        for p in guardados
+    }
+    for partido in base:
+        clave = (partido["jornada"], partido["equipo1"], partido["equipo2"])
+        if clave not in index:
+            continue
+        partido["goles1"] = int(index[clave].get("goles1", 0) or 0)
+        partido["goles2"] = int(index[clave].get("goles2", 0) or 0)
+    return base
+
+
+def _partidos_por_jornada(partidos: List[dict]) -> List[dict]:
+    """Agrupa partidos planos en la estructura esperada por el frontend."""
+
+    jornadas: Dict[int, List[dict]] = {}
+    for partido in partidos:
+        jornada = int(partido.get("jornada", 0) or 0)
+        jornadas.setdefault(jornada, []).append(partido)
+
+    salida = []
+    for jornada in sorted(jornadas):
+        salida.append({"jornada": jornada, "partidos": jornadas[jornada]})
+    return salida
+
+
 def guardar_grupos(grupos: Dict[str, List[dict]]) -> None:
     """Guarda todos los grupos en ResultadoGrupos.csv con los puestos recalculados."""
     # Recalcular y aplanar en orden alfabético de grupo
@@ -170,6 +245,17 @@ def guardar_grupos(grupos: Dict[str, List[dict]]) -> None:
         writer = csv.DictWriter(f, fieldnames=CSV_FIELDS)
         writer.writeheader()
         writer.writerows(todas_filas)
+
+
+def _reiniciar_partidos(grupos: Dict[str, List[dict]]) -> Dict[str, List[dict]]:
+    """Crea el calendario base para todos los grupos con marcadores en cero."""
+
+    resultados: Dict[str, List[dict]] = {}
+    for grupo, equipos in grupos.items():
+        paises = [e["pais"] for e in equipos]
+        resultados[grupo] = _calendario_base(grupo, paises)
+    _guardar_partidos_guardados(resultados)
+    return resultados
 
 
 def sincronizar_desde_grupos() -> Dict[str, List[dict]]:
@@ -233,6 +319,46 @@ def calcular_desde_partidos(
     return recalcular_grupo(list(equipos.values()), mantener_orden=True)
 
 
+def _normalizar_partidos_para_guardar(
+    grupo_id: str, partidos: List[dict], paises: List[str]
+) -> List[dict]:
+    """Valida y devuelve los partidos con goles listos para persistir."""
+
+    agenda = {
+        (local, visita): jornada["jornada"]
+        for jornada in _generar_partidos(paises)
+        for local, visita in jornada["partidos"]
+    }
+
+    normalizados: List[dict] = []
+    for partido in partidos:
+        eq1 = (partido.get("equipo1") or "").strip()
+        eq2 = (partido.get("equipo2") or "").strip()
+        if eq1 not in paises or eq2 not in paises:
+            raise ValueError(f"Partido con equipo desconocido: {eq1} vs {eq2}")
+        if eq1 == eq2:
+            raise ValueError("Un partido no puede enfrentar al mismo equipo")
+
+        jornada = int(partido.get("jornada", 0) or 0)
+        if jornada == 0:
+            jornada = agenda.get((eq1, eq2), 0)
+        if (eq1, eq2) not in agenda:
+            raise ValueError(f"Emparejamiento inválido: {eq1} vs {eq2}")
+
+        normalizados.append(
+            {
+                "grupo": grupo_id,
+                "jornada": jornada,
+                "equipo1": eq1,
+                "equipo2": eq2,
+                "goles1": int(partido.get("goles1", 0) or 0),
+                "goles2": int(partido.get("goles2", 0) or 0),
+            }
+        )
+
+    return normalizados
+
+
 class GruposHandler(SimpleHTTPRequestHandler):
     """Manejador HTTP con endpoints API y contenido estático."""
 
@@ -246,6 +372,8 @@ class GruposHandler(SimpleHTTPRequestHandler):
         return super().do_GET()
 
     def do_POST(self):  # noqa: N802 - API http
+        if self.path.startswith("/api/groups/") and self.path.endswith("/reset"):
+            return self._handle_group_reset()
         if self.path.startswith("/api/groups/"):
             return self._handle_api_post()
         if self.path == "/api/reset":
@@ -262,7 +390,7 @@ class GruposHandler(SimpleHTTPRequestHandler):
             if data is None:
                 return self._send_json({"error": "Grupo no encontrado"}, status=HTTPStatus.NOT_FOUND)
             data = recalcular_grupo(data, mantener_orden=True)
-            partidos = _generar_partidos([e["pais"] for e in data])
+            partidos = _partidos_por_jornada(_partidos_en_crudo(grupo_id, [e["pais"] for e in data]))
             return self._send_json(
                 {
                     "grupo": grupo_id,
@@ -294,7 +422,10 @@ class GruposHandler(SimpleHTTPRequestHandler):
             if not isinstance(partidos, list):
                 return self._send_json({"error": "Formato de partidos inválido"}, status=HTTPStatus.BAD_REQUEST)
             try:
-                actualizados = calcular_desde_partidos(grupo_id, partidos, grupos)
+                normalizados = _normalizar_partidos_para_guardar(
+                    grupo_id, partidos, [e["pais"] for e in grupos[grupo_id]]
+                )
+                actualizados = calcular_desde_partidos(grupo_id, normalizados, grupos)
             except ValueError as exc:  # errores de validación
                 return self._send_json({"error": str(exc)}, status=HTTPStatus.BAD_REQUEST)
         else:
@@ -323,13 +454,43 @@ class GruposHandler(SimpleHTTPRequestHandler):
 
         grupos[grupo_id] = actualizados
         guardar_grupos(grupos)
+        if partidos is not None:
+            guardados = _cargar_partidos_guardados()
+            guardados[grupo_id] = normalizados
+            _guardar_partidos_guardados(guardados)
         return self._send_json({"ok": True, "grupo": grupo_id, "equipos": recalcular_grupo(actualizados)})
+
+    def _handle_group_reset(self):
+        partes = self.path.strip("/").split("/")
+        if len(partes) < 4:
+            return self._send_json({"error": "Grupo no especificado"}, status=HTTPStatus.BAD_REQUEST)
+        grupo_id = partes[2].upper()
+
+        if not GRUPOS_CSV.exists():
+            return self._send_json({"error": "No existe grupos.csv para reiniciar"}, status=HTTPStatus.NOT_FOUND)
+
+        base = _cargar_grupos_desde(GRUPOS_CSV)
+        if grupo_id not in base:
+            return self._send_json({"error": "Grupo no encontrado"}, status=HTTPStatus.NOT_FOUND)
+
+        grupos = cargar_grupos()
+        grupos[grupo_id] = base[grupo_id]
+        guardar_grupos(grupos)
+
+        partidos_guardados = _cargar_partidos_guardados()
+        partidos_guardados[grupo_id] = _calendario_base(grupo_id, [e["pais"] for e in base[grupo_id]])
+        _guardar_partidos_guardados(partidos_guardados)
+
+        data = recalcular_grupo(base[grupo_id], mantener_orden=True)
+        partidos = _partidos_por_jornada(partidos_guardados[grupo_id])
+        return self._send_json({"ok": True, "grupo": grupo_id, "equipos": data, "partidos": partidos})
 
     def _handle_reset(self):
         try:
             grupos = sincronizar_desde_grupos()
         except FileNotFoundError as exc:
             return self._send_json({"error": str(exc)}, status=HTTPStatus.NOT_FOUND)
+        _reiniciar_partidos(grupos)
         return self._send_json({"ok": True, "grupos": {g: recalcular_grupo(eq) for g, eq in grupos.items()}})
 
     def _send_json(self, data, status: HTTPStatus = HTTPStatus.OK):
