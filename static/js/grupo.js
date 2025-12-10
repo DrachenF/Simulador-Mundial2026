@@ -1,47 +1,87 @@
 const params = new URLSearchParams(window.location.search);
 let currentGroup = (params.get("g") || "A").toUpperCase();
 let gruposDisponibles = [];
+let partidosVigentes = [];
 
 const title = document.getElementById("title");
-const container = document.getElementById("form-container");
+const tablaContainer = document.getElementById("tabla-container");
+const matchesContainer = document.getElementById("matches-container");
 const prevBtn = document.getElementById("prev");
 const nextBtn = document.getElementById("next");
 const saveBtn = document.getElementById("save");
 const statusEl = document.getElementById("status");
+const stepper = document.getElementById("stepper");
 
-function buildRow(team) {
-  const row = document.createElement("div");
-  row.className = "input-row";
-  row.dataset.pais = team.pais;
-  row.innerHTML = `
-    <strong>${team.pais}</strong>
-    <input type="number" name="pj" value="${team.pj}" min="0" />
-    <input type="number" name="w" value="${team.w}" min="0" />
-    <input type="number" name="d" value="${team.d}" min="0" />
-    <input type="number" name="l" value="${team.l}" min="0" />
-    <input type="number" name="GF" value="${team.GF}" min="0" />
-    <input type="number" name="GC" value="${team.GC}" min="0" />
+function renderTabla(equipos) {
+  const table = document.createElement("table");
+  table.className = "table wide";
+  table.innerHTML = `
+    <thead>
+      <tr>
+        <th>País</th>
+        <th>PJ</th>
+        <th>W</th>
+        <th>D</th>
+        <th>L</th>
+        <th>GF</th>
+        <th>GC</th>
+        <th>DG</th>
+        <th>Pts</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${equipos
+        .map(
+          (t) => `
+        <tr>
+          <td>${t.puesto}. ${t.pais}</td>
+          <td>${t.pj}</td>
+          <td>${t.w}</td>
+          <td>${t.d}</td>
+          <td>${t.l}</td>
+          <td>${t.GF}</td>
+          <td>${t.GC}</td>
+          <td>${t.DG}</td>
+          <td>${t.pts}</td>
+        </tr>`
+        )
+        .join("")}
+    </tbody>
   `;
-  return row;
+  tablaContainer.innerHTML = "";
+  tablaContainer.appendChild(table);
+}
+
+function renderMatches(partidos) {
+  partidosVigentes = partidos;
+  matchesContainer.innerHTML = "";
+  partidos.forEach(([local, visita], idx) => {
+    const row = document.createElement("div");
+    row.className = "match-row";
+    row.dataset.local = local;
+    row.dataset.visita = visita;
+    row.innerHTML = `
+      <span class="team">${local}</span>
+      <input type="number" name="goles1" min="0" value="0" aria-label="Goles de ${local}" />
+      <input type="number" name="goles2" min="0" value="0" aria-label="Goles de ${visita}" />
+      <span class="team">${visita}</span>
+    `;
+    matchesContainer.appendChild(row);
+    if (idx === 2) {
+      const divider = document.createElement("hr");
+      divider.className = "divider";
+      matchesContainer.appendChild(divider);
+    }
+  });
 }
 
 function renderGroup(data) {
   title.textContent = `Grupo ${data.grupo}`;
+  stepper.textContent = data.grupo;
   gruposDisponibles = data.gruposDisponibles || gruposDisponibles;
-  container.innerHTML = "";
-  const header = document.createElement("div");
-  header.className = "input-row";
-  header.innerHTML = `
-    <span></span>
-    <span class="subtitle">PJ</span>
-    <span class="subtitle">W</span>
-    <span class="subtitle">D</span>
-    <span class="subtitle">L</span>
-    <span class="subtitle">GF</span>
-    <span class="subtitle">GC</span>
-  `;
-  container.appendChild(header);
-  data.equipos.forEach((t) => container.appendChild(buildRow(t)));
+  renderTabla(data.equipos);
+  const partidos = data.partidos || [];
+  renderMatches(partidos);
 }
 
 async function loadGroup(id) {
@@ -67,31 +107,27 @@ function cycleGroup(direction) {
 }
 
 function collectData() {
-  const rows = Array.from(container.querySelectorAll(".input-row"));
-  return rows
-    .filter((r) => r.dataset.pais)
-    .map((row) => {
-      const getValue = (name) => parseInt(row.querySelector(`input[name="${name}"]`).value || "0", 10);
-      return {
-        pais: row.dataset.pais,
-        pj: getValue("pj"),
-        w: getValue("w"),
-        d: getValue("d"),
-        l: getValue("l"),
-        GF: getValue("GF"),
-        GC: getValue("GC"),
-      };
-    });
+  const rows = Array.from(matchesContainer.querySelectorAll(".match-row"));
+  return rows.map((row) => {
+    const goles1 = parseInt(row.querySelector('input[name="goles1"]').value || "0", 10);
+    const goles2 = parseInt(row.querySelector('input[name="goles2"]').value || "0", 10);
+    return {
+      equipo1: row.dataset.local,
+      equipo2: row.dataset.visita,
+      goles1,
+      goles2,
+    };
+  });
 }
 
 async function save() {
   statusEl.textContent = "Guardando...";
   try {
-    const equipos = collectData();
+    const partidos = collectData();
     const res = await fetch(`/api/groups/${currentGroup}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ equipos }),
+      body: JSON.stringify({ partidos }),
     });
     if (!res.ok) throw new Error("No se pudo guardar");
     await res.json();

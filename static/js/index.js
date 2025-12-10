@@ -143,6 +143,22 @@ function setStatus(text, tone = "neutral") {
       : "linear-gradient(135deg, rgba(95,230,201,0.08), rgba(111,163,255,0.08))";
 }
 
+async function resetData() {
+  setStatus("Reiniciando con grupos.csv...", "neutral");
+  try {
+    const res = await fetch("/api/reset", { method: "POST" });
+    if (!res.ok) {
+      const error = await res.json().catch(() => ({ error: "Error al reiniciar" }));
+      throw new Error(error.error || "No se pudo reiniciar");
+    }
+    setStatus("Datos reiniciados", "neutral");
+    await render();
+  } catch (err) {
+    console.error(err);
+    setStatus(err.message, "error");
+  }
+}
+
 async function render() {
   groupsContainer.innerHTML = "<p class='subtitle'>Cargando grupos…</p>";
   setStatus("Sincronizando", "neutral");
@@ -175,5 +191,5 @@ async function render() {
   }
 }
 
-refreshBtn?.addEventListener("click", render);
+refreshBtn?.addEventListener("click", resetData);
 render();

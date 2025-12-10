@@ -10,7 +10,7 @@
     <div class="container">
       <div class="hero">
         <div class="hero-title">
-          <span class="pill">Editor rápido</span>
+          <a class="pill link-pill" href="./index.html">⟵ Fase de grupos</a>
           <h1 id="title">Grupo</h1>
         </div>
         <p class="subtitle">Actualiza estadísticas directamente sobre <strong>ResultadoGrupos.csv</strong> y sincroniza la clasificación al instante.</p>
@@ -18,16 +18,20 @@
       <header>
         <p class="subtitle">Navega entre grupos</p>
         <div class="group-nav">
-          <button class="button secondary" id="prev">Anterior</button>
-          <button class="button secondary" id="next">Siguiente</button>
-          <a class="button" href="./index.html">Volver</a>
+          <button class="button secondary icon" id="prev" aria-label="Grupo anterior">⟵</button>
+          <div class="pill muted" id="stepper">A</div>
+          <button class="button secondary icon" id="next" aria-label="Grupo siguiente">⟶</button>
         </div>
       </header>
       <section>
-        <p class="helper">Modifica PJ, W, D, L, GF o GC. Los puntos y la diferencia de goles se recalculan automáticamente.</p>
-        <div id="form-container"></div>
-        <div style="margin-top: 16px; display: flex; gap: 8px; align-items: center;">
-          <button class="button" id="save">Actualizar</button>
+        <p class="helper">Resumen del grupo recalculado al vuelo.</p>
+        <div id="tabla-container"></div>
+      </section>
+      <section class="card" style="margin-top: 18px;">
+        <p class="helper">Captura los marcadores de los 6 partidos. Los puntos y la diferencia de goles se recalculan automáticamente.</p>
+        <div id="matches-container"></div>
+        <div class="form-actions">
+          <button class="button" id="save">Actualizar tabla</button>
           <span class="subtitle" id="status"></span>
         </div>
       </section>
