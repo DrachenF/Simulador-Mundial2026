@@ -27,6 +27,21 @@ body {
   scroll-behavior: smooth;
 }
 
+.page-frame {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.fixed-section {
+  flex: 0 0 auto;
+}
+
+.scroll-section {
+  flex: 1 1 auto;
+  overflow-y: auto;
+}
+
 header {
   padding: 28px 28px 12px;
   display: flex;
@@ -48,10 +63,19 @@ h1 {
 
 .container {
   width: min(1180px, 95vw);
-  margin: 0 auto 40px;
+  margin: 0 auto 28px;
   display: flex;
   flex-direction: column;
   gap: 12px;
+}
+
+.fixed-section .container {
+  margin-bottom: 14px;
+}
+
+.scroll-section .container {
+  margin-top: 4px;
+  margin-bottom: 20px;
 }
 
 .hero {
