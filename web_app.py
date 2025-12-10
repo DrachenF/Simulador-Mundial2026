@@ -414,19 +414,24 @@ class GruposHandler(SimpleHTTPRequestHandler):
             data = grupos.get(grupo_id)
             if data is None:
                 return self._send_json({"error": "Grupo no encontrado"}, status=HTTPStatus.NOT_FOUND)
-            data = recalcular_grupo(data, mantener_orden=True)
-            partidos = _partidos_por_jornada(_partidos_en_crudo(grupo_id, [e["pais"] for e in data]))
+
+            # La tabla se entrega ordenada por desempeño, pero los partidos
+            # respetan el orden original de países del CSV.
+            tabla = recalcular_grupo(data, mantener_orden=False)
+            partidos = _partidos_por_jornada(
+                _partidos_en_crudo(grupo_id, [e["pais"] for e in recalcular_grupo(data, mantener_orden=True)])
+            )
             return self._send_json(
                 {
                     "grupo": grupo_id,
-                    "equipos": data,
+                    "equipos": tabla,
                     "gruposDisponibles": sorted(grupos),
                     "partidos": partidos,
                 }
             )
 
         # Listado completo
-        payload = {g: recalcular_grupo(eq, mantener_orden=True) for g, eq in grupos.items()}
+        payload = {g: recalcular_grupo(eq, mantener_orden=False) for g, eq in grupos.items()}
         return self._send_json({"grupos": payload, "gruposDisponibles": sorted(grupos)})
 
     def _handle_api_post(self):
@@ -506,7 +511,7 @@ class GruposHandler(SimpleHTTPRequestHandler):
         partidos_guardados[grupo_id] = _calendario_base(grupo_id, [e["pais"] for e in base[grupo_id]])
         _guardar_partidos_guardados(partidos_guardados)
 
-        data = recalcular_grupo(base[grupo_id], mantener_orden=True)
+        data = recalcular_grupo(base[grupo_id], mantener_orden=False)
         partidos = _partidos_por_jornada(partidos_guardados[grupo_id])
         return self._send_json({"ok": True, "grupo": grupo_id, "equipos": data, "partidos": partidos})
 
