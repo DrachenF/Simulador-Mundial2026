@@ -125,8 +125,9 @@ function adjustMatchesHeight() {
   const footer = document.querySelector("footer");
   const footerSpace = (footer?.offsetHeight || 40) + 14;
   const available = window.innerHeight - rect.top - footerSpace;
-  const targetHeight = Math.max(260, available);
+  const targetHeight = Math.max(420, available);
   matchesCard.style.maxHeight = `${targetHeight}px`;
+  matchesCard.style.height = `${targetHeight}px`;
   matchesCard.style.overflowY = "auto";
 }
 
