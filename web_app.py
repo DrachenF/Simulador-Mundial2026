@@ -47,6 +47,22 @@ def _leer_csv_activo() -> Path:
     return RESULTADO_CSV if RESULTADO_CSV.exists() else GRUPOS_CSV
 
 
+def _reset_bracket_state_if_needed() -> bool:
+    """Elimina el estado de llaves si existe alguno guardado.
+
+    Devuelve ``True`` si se eliminó algún archivo persistente de eliminatorias,
+    lo que sirve para saber que el cuadro deberá recalcularse con los nuevos
+    resultados de grupos.
+    """
+
+    removed = False
+    for path in (LLAVES_STATE, LLAVES_CSV):
+        if path.exists():
+            path.unlink()
+            removed = True
+    return removed
+
+
 def _cargar_partidos_guardados() -> Dict[str, List[dict]]:
     """Carga resultados de partidos persistidos en JSON si existe."""
 
@@ -910,11 +926,14 @@ class GruposHandler(SimpleHTTPRequestHandler):
 
         grupos[grupo_id] = actualizados
         guardar_grupos(grupos)
+        llaves_reset = _reset_bracket_state_if_needed()
         if partidos is not None:
             guardados = _cargar_partidos_guardados()
             guardados[grupo_id] = normalizados
             _guardar_partidos_guardados(guardados)
-        return self._send_json({"ok": True, "grupo": grupo_id, "equipos": recalcular_grupo(actualizados)})
+        return self._send_json(
+            {"ok": True, "grupo": grupo_id, "equipos": recalcular_grupo(actualizados), "llavesReiniciadas": llaves_reset}
+        )
 
     def _handle_group_reset(self):
         partes = self.path.strip("/").split("/")
@@ -933,13 +952,17 @@ class GruposHandler(SimpleHTTPRequestHandler):
         grupos[grupo_id] = base[grupo_id]
         guardar_grupos(grupos)
 
+        llaves_reset = _reset_bracket_state_if_needed()
+
         partidos_guardados = _cargar_partidos_guardados()
         partidos_guardados[grupo_id] = _calendario_base(grupo_id, [e["pais"] for e in base[grupo_id]])
         _guardar_partidos_guardados(partidos_guardados)
 
         data = recalcular_grupo(base[grupo_id], mantener_orden=False)
         partidos = _partidos_por_jornada(partidos_guardados[grupo_id])
-        return self._send_json({"ok": True, "grupo": grupo_id, "equipos": data, "partidos": partidos})
+        return self._send_json(
+            {"ok": True, "grupo": grupo_id, "equipos": data, "partidos": partidos, "llavesReiniciadas": llaves_reset}
+        )
 
     def _handle_reset(self):
         try:
@@ -947,7 +970,10 @@ class GruposHandler(SimpleHTTPRequestHandler):
         except FileNotFoundError as exc:
             return self._send_json({"error": str(exc)}, status=HTTPStatus.NOT_FOUND)
         _reiniciar_partidos(grupos)
-        return self._send_json({"ok": True, "grupos": {g: recalcular_grupo(eq) for g, eq in grupos.items()}})
+        llaves_reset = _reset_bracket_state_if_needed()
+        return self._send_json(
+            {"ok": True, "grupos": {g: recalcular_grupo(eq) for g, eq in grupos.items()}, "llavesReiniciadas": llaves_reset}
+        )
 
     def _handle_bracket_get(self):
         try:

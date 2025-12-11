@@ -9,17 +9,18 @@ function shortName(name) {
   return name.length > 18 ? `${name.slice(0, 16)}…` : name;
 }
 
-function matchCard(match, showRound = true) {
+function matchCard(match, flow = "") {
   const card = document.createElement("div");
-  card.className = "bracket-match";
+  card.className = `match-node ${flow}`.trim();
   card.dataset.id = match.id;
   const needsPens = match.goles1 !== null && match.goles2 !== null && match.goles1 === match.goles2;
 
-  const makeInput = (value, cls) => {
+  const makeInput = (value, cls, name) => {
     const input = document.createElement("input");
     input.type = "number";
     input.min = "0";
     input.value = value ?? "";
+    input.name = name;
     input.className = cls;
     input.addEventListener("input", () => scheduleSave(match.id));
     return input;
@@ -27,43 +28,41 @@ function matchCard(match, showRound = true) {
 
   const row = (team, gKey, pKey) => {
     const wrap = document.createElement("div");
-    wrap.className = "bracket-row";
+    wrap.className = "match-row";
+    const chip = document.createElement("span");
+    chip.className = "team-chip";
+    chip.textContent = team ? team.slice(0, 1).toUpperCase() : "";
+
     const name = document.createElement("span");
-    name.className = "team";
+    name.className = "team-name";
     name.textContent = team || "";
 
-    const goals = makeInput(match[gKey], "score-input");
-    goals.name = gKey;
+    const goals = makeInput(match[gKey], "score-input", gKey);
     goals.placeholder = "";
 
     const penBox = document.createElement("div");
     penBox.className = `pen-box ${needsPens || match[pKey] !== null ? "" : "hidden"}`;
-    const pen = makeInput(match[pKey], "score-input pen");
-    pen.name = pKey;
+    const pen = makeInput(match[pKey], "score-input pen", pKey);
     pen.placeholder = "p";
     penBox.append("P", pen);
 
-    wrap.append(name, goals, penBox);
+    wrap.append(chip, name, goals, penBox);
     return wrap;
   };
 
-  if (showRound) {
-    const header = document.createElement("div");
-    header.className = "bracket-header";
-    header.textContent = `${match.round} · Llave ${match.id}`;
-    card.append(header);
-  }
+  const header = document.createElement("div");
+  header.className = "bracket-header";
+  header.textContent = `${match.round} · Llave ${match.id}`;
 
-  card.append(
-    row(match.equipo1, "goles1", "pen1"),
-    row(match.equipo2, "goles2", "pen2"),
-  );
+  const rows = document.createElement("div");
+  rows.className = "match-rows";
+  rows.append(row(match.equipo1, "goles1", "pen1"), row(match.equipo2, "goles2", "pen2"));
 
   const winner = document.createElement("div");
   winner.className = "winner";
   winner.textContent = match.ganador ? `→ ${shortName(match.ganador)}` : "";
-  card.appendChild(winner);
 
+  card.append(header, rows, winner);
   return card;
 }
 
@@ -90,44 +89,41 @@ function render(bracket) {
   renderThirds(bracket.bestThirds);
   grid.innerHTML = "";
 
-  const wrapper = document.createElement("div");
-  wrapper.className = "bracket-wrapper";
+  const canvas = document.createElement("div");
+  canvas.className = "bracket-canvas";
 
-  const renderSide = (rounds, side) => {
-    const sideEl = document.createElement("div");
-    sideEl.className = `bracket-side ${side}`;
-    rounds.forEach((round) => {
-      const col = document.createElement("div");
-      col.className = "bracket-column";
-      const title = document.createElement("h3");
-      title.textContent = round.label;
-      col.appendChild(title);
-      round.matches.forEach((match) => col.appendChild(matchCard(match)));
-      sideEl.appendChild(col);
-    });
-    return sideEl;
+  const board = document.createElement("div");
+  board.className = "bracket-board";
+
+  const renderRound = (round, flowDir) => {
+    const col = document.createElement("div");
+    col.className = "round-column";
+    const title = document.createElement("h4");
+    title.className = "round-title";
+    title.textContent = round.label;
+    col.appendChild(title);
+    round.matches.forEach((match) => col.appendChild(matchCard(match, flowDir)));
+    return col;
   };
 
+  bracket.left.forEach((round) => board.appendChild(renderRound(round, "flow-right")));
+
   const center = document.createElement("div");
-  center.className = "bracket-center";
-  const finalBlock = document.createElement("div");
-  finalBlock.className = "center-block";
-  const finalTitle = document.createElement("h3");
+  center.className = "round-column center-stack";
+  const finalTitle = document.createElement("h4");
+  finalTitle.className = "round-title";
   finalTitle.textContent = "Final";
-  finalBlock.append(finalTitle, matchCard(bracket.center.final, false));
-
-  const thirdBlock = document.createElement("div");
-  thirdBlock.className = "center-block";
-  const thirdTitle = document.createElement("h3");
+  const thirdTitle = document.createElement("h4");
+  thirdTitle.className = "round-title";
   thirdTitle.textContent = "Tercer lugar";
-  thirdBlock.append(thirdTitle, matchCard(bracket.center.third, false));
+  center.append(finalTitle, matchCard(bracket.center.final), thirdTitle, matchCard(bracket.center.third));
 
-  center.append(finalBlock, thirdBlock);
+  board.appendChild(center);
 
-  const left = renderSide(bracket.left, "left");
-  const right = renderSide(bracket.right, "right");
-  wrapper.append(left, right, center);
-  grid.appendChild(wrapper);
+  bracket.right.forEach((round) => board.appendChild(renderRound(round, "flow-left")));
+
+  canvas.appendChild(board);
+  grid.appendChild(canvas);
 }
 
 async function loadBracket() {
@@ -144,7 +140,7 @@ async function loadBracket() {
 }
 
 async function save(matchId) {
-  const card = grid.querySelector(`.bracket-match[data-id="${matchId}"]`);
+  const card = grid.querySelector(`.match-node[data-id="${matchId}"]`);
   if (!card) return;
   const payload = { matchId };
   card.querySelectorAll("input").forEach((input) => {
@@ -174,7 +170,7 @@ function scheduleSave(matchId) {
 
 syncBtn?.addEventListener("click", () => loadBracket());
 grid?.addEventListener("input", (event) => {
-  const card = event.target.closest(".bracket-match");
+  const card = event.target.closest(".match-node");
   if (!card) return;
   const matchId = Number(card.dataset.id);
   scheduleSave(matchId);
