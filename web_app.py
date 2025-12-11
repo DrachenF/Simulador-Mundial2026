@@ -16,13 +16,16 @@ from functools import partial
 from http import HTTPStatus
 from http.server import ThreadingHTTPServer, SimpleHTTPRequestHandler
 from pathlib import Path
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Optional
 
 BASE_DIR = Path(__file__).resolve().parent
 STATIC_DIR = BASE_DIR / "static"
 GRUPOS_CSV = BASE_DIR / "grupos.csv"
 RESULTADO_CSV = BASE_DIR / "ResultadoGrupos.csv"
 PARTIDOS_JSON = BASE_DIR / "partidos.json"
+COMBINACIONES_CSV = BASE_DIR / "Combinaciones.csv"
+LLAVES_CSV = BASE_DIR / "LLaves16.csv"
+LLAVES_STATE = BASE_DIR / "llaves_state.json"
 
 CSV_FIELDS = [
     "grupo",
@@ -384,12 +387,335 @@ def _normalizar_partidos_para_guardar(
     return normalizados
 
 
+# ======= Utilidades para llaves de eliminación =======
+
+
+def _leer_resultados_finales() -> List[Dict[str, object]]:
+    """Carga ResultadoGrupos.csv con los puestos ya calculados."""
+
+    if not RESULTADO_CSV.exists():
+        raise FileNotFoundError("No existe ResultadoGrupos.csv")
+
+    registros: List[Dict[str, object]] = []
+    with open(RESULTADO_CSV, newline="", encoding="utf-8") as archivo:
+        lector = csv.DictReader(archivo)
+        for fila in lector:
+            registros.append(
+                {
+                    "grupo": (fila.get("grupo") or "").upper(),
+                    "pais": (fila.get("pais") or "").strip(),
+                    "pj": int(fila.get("pj") or 0),
+                    "w": int(fila.get("w") or 0),
+                    "d": int(fila.get("d") or 0),
+                    "l": int(fila.get("l") or 0),
+                    "GF": int(fila.get("GF") or 0),
+                    "GC": int(fila.get("GC") or 0),
+                    "DG": int(fila.get("DG") or 0),
+                    "pts": int(fila.get("pts") or 0),
+                    "puesto": int(fila.get("puesto") or 0),
+                }
+            )
+    return registros
+
+
+def _tabla_por_grupo(datos: List[Dict[str, object]]) -> Dict[str, List[Dict[str, object]]]:
+    """Agrupa por grupo y ordena por criterios de desempate."""
+
+    tabla: Dict[str, List[Dict[str, object]]] = {}
+    for fila in datos:
+        grupo = fila.get("grupo", "").upper()
+        tabla.setdefault(grupo, []).append(fila)
+
+    for equipos in tabla.values():
+        equipos.sort(key=lambda f: (-f["pts"], -f["DG"], -f["GF"], f["pais"]))
+
+    return tabla
+
+
+def _terceros_ordenados(datos: List[Dict[str, object]]) -> List[Dict[str, object]]:
+    terceros = [fila for fila in datos if fila.get("puesto") == 3]
+    return sorted(terceros, key=lambda f: (-f["pts"], -f["DG"], -f["GF"], f["pais"]))
+
+
+def _cadena_ultimos_terceros(terceros: List[Dict[str, object]]) -> str:
+    ultimos = terceros[-4:]
+    return "".join(sorted(fila["grupo"] for fila in ultimos)) if ultimos else ""
+
+
+def _leer_combinaciones() -> List[Dict[str, str]]:
+    if not COMBINACIONES_CSV.exists():
+        raise FileNotFoundError("No se encontró Combinaciones.csv")
+
+    filas: List[Dict[str, str]] = []
+    with open(COMBINACIONES_CSV, newline="", encoding="utf-8") as archivo:
+        lector = csv.DictReader(archivo)
+        if lector.fieldnames is None:
+            raise ValueError("El archivo de combinaciones no tiene encabezados")
+        for fila in lector:
+            filas.append({k: (v or "").strip() for k, v in fila.items()})
+    return filas
+
+
+def _buscar_combinacion(cadena: str, combinaciones: List[Dict[str, str]]) -> Dict[str, str]:
+    for fila in combinaciones:
+        if fila.get("Cadena", "") == cadena:
+            return fila
+    raise ValueError(f"No se encontró combinación para la cadena {cadena!r}")
+
+
+def _equipo_por_posicion(tabla: Dict[str, List[Dict[str, object]]], grupo: str, pos: int) -> str:
+    equipos = tabla.get(grupo.upper(), [])
+    if pos <= 0 or pos > len(equipos):
+        raise ValueError(f"No hay equipo en la posición {pos} del grupo {grupo}")
+    return equipos[pos - 1]["pais"]
+
+
+def _equipo_tercero(tabla: Dict[str, List[Dict[str, object]]], clave: Optional[str]) -> str:
+    if not clave:
+        raise ValueError("Valor de combinación inválido para tercero lugar")
+    grupo = clave[-1]
+    return _equipo_por_posicion(tabla, grupo, 3)
+
+
+def _construir_llaves(tabla: Dict[str, List[Dict[str, object]]], combinacion: Dict[str, str]) -> List[Tuple[int, str, str]]:
+    llaves: List[Tuple[int, str, str]] = []
+    llaves.append((1, _equipo_por_posicion(tabla, "E", 1), _equipo_tercero(tabla, combinacion.get("1E"))))
+    llaves.append((2, _equipo_por_posicion(tabla, "I", 1), _equipo_tercero(tabla, combinacion.get("1I"))))
+    llaves.append((3, _equipo_por_posicion(tabla, "A", 2), _equipo_por_posicion(tabla, "B", 2)))
+    llaves.append((4, _equipo_por_posicion(tabla, "F", 1), _equipo_por_posicion(tabla, "C", 2)))
+    llaves.append((5, _equipo_por_posicion(tabla, "K", 2), _equipo_por_posicion(tabla, "L", 2)))
+    llaves.append((6, _equipo_por_posicion(tabla, "H", 1), _equipo_por_posicion(tabla, "J", 2)))
+    llaves.append((7, _equipo_por_posicion(tabla, "D", 1), _equipo_tercero(tabla, combinacion.get("1D"))))
+    llaves.append((8, _equipo_por_posicion(tabla, "G", 1), _equipo_tercero(tabla, combinacion.get("1G"))))
+    llaves.append((9, _equipo_por_posicion(tabla, "C", 1), _equipo_por_posicion(tabla, "F", 2)))
+    llaves.append((10, _equipo_por_posicion(tabla, "E", 2), _equipo_por_posicion(tabla, "I", 2)))
+    llaves.append((11, _equipo_por_posicion(tabla, "A", 1), _equipo_tercero(tabla, combinacion.get("1A"))))
+    llaves.append((12, _equipo_por_posicion(tabla, "L", 1), _equipo_tercero(tabla, combinacion.get("1L"))))
+    llaves.append((13, _equipo_por_posicion(tabla, "J", 1), _equipo_por_posicion(tabla, "H", 2)))
+    llaves.append((14, _equipo_por_posicion(tabla, "D", 2), _equipo_por_posicion(tabla, "G", 2)))
+    llaves.append((15, _equipo_por_posicion(tabla, "B", 1), _equipo_tercero(tabla, combinacion.get("1B"))))
+    llaves.append((16, _equipo_por_posicion(tabla, "K", 1), _equipo_tercero(tabla, combinacion.get("1K"))))
+    return llaves
+
+
+def _guardar_llaves_csv(llaves: List[Tuple[int, str, str]]) -> None:
+    with open(LLAVES_CSV, "w", newline="", encoding="utf-8") as archivo:
+        campos = ["llave", "Equipo1", "Equipo2"]
+        escritor = csv.DictWriter(archivo, fieldnames=campos)
+        escritor.writeheader()
+        for llave, equipo1, equipo2 in llaves:
+            escritor.writerow({"llave": llave, "Equipo1": equipo1, "Equipo2": equipo2})
+
+
+def _llaves_base() -> List[Tuple[int, str, str]]:
+    resultados = _leer_resultados_finales()
+    tabla = _tabla_por_grupo(resultados)
+    combinaciones = _leer_combinaciones()
+    cadena = _cadena_ultimos_terceros(_terceros_ordenados(resultados))
+    combinacion = _buscar_combinacion(cadena, combinaciones)
+    llaves = _construir_llaves(tabla, combinacion)
+    _guardar_llaves_csv(llaves)
+    return llaves
+
+
+ROUND_NAMES = {
+    "R32": "Dieciseisavos",
+    "R16": "Octavos",
+    "QF": "Cuartos de final",
+    "SF": "Semifinales",
+    "F": "Final",
+}
+
+
+def _round_for_match(match_id: int) -> str:
+    if match_id <= 16:
+        return "R32"
+    if match_id <= 24:
+        return "R16"
+    if match_id <= 28:
+        return "QF"
+    if match_id <= 30:
+        return "SF"
+    return "F"
+
+
+PROGRESION = [
+    (1, 17, 1),
+    (2, 17, 2),
+    (3, 18, 1),
+    (4, 18, 2),
+    (5, 19, 1),
+    (6, 19, 2),
+    (7, 20, 1),
+    (8, 20, 2),
+    (9, 21, 1),
+    (10, 21, 2),
+    (11, 22, 1),
+    (12, 22, 2),
+    (13, 23, 1),
+    (14, 23, 2),
+    (15, 24, 1),
+    (16, 24, 2),
+    (17, 25, 1),
+    (18, 25, 2),
+    (19, 26, 1),
+    (20, 26, 2),
+    (21, 27, 1),
+    (22, 27, 2),
+    (23, 28, 1),
+    (24, 28, 2),
+    (25, 29, 1),
+    (26, 29, 2),
+    (27, 30, 1),
+    (28, 30, 2),
+    (29, 31, 1),
+    (30, 31, 2),
+]
+
+
+def _match_template(match_id: int, equipo1: str = "", equipo2: str = "") -> Dict[str, object]:
+    return {
+        "id": match_id,
+        "round": _round_for_match(match_id),
+        "equipo1": equipo1,
+        "equipo2": equipo2,
+        "goles1": None,
+        "goles2": None,
+        "pen1": None,
+        "pen2": None,
+        "ganador": "",
+    }
+
+
+def _bracket_skeleton() -> Dict[int, Dict[str, object]]:
+    llaves = _llaves_base()
+    matches: Dict[int, Dict[str, object]] = {}
+    for match_id, eq1, eq2 in llaves:
+        matches[match_id] = _match_template(match_id, eq1, eq2)
+
+    for match_id in range(17, 32):
+        if match_id not in matches:
+            matches[match_id] = _match_template(match_id)
+
+    return matches
+
+
+def _winner(match: Dict[str, object]) -> Optional[str]:
+    eq1 = match.get("equipo1") or ""
+    eq2 = match.get("equipo2") or ""
+    if not eq1 or not eq2:
+        return None
+
+    g1 = match.get("goles1")
+    g2 = match.get("goles2")
+    if g1 is None or g2 is None:
+        return None
+    if g1 > g2:
+        return eq1
+    if g2 > g1:
+        return eq2
+
+    p1 = match.get("pen1")
+    p2 = match.get("pen2")
+    if p1 is None or p2 is None:
+        return None
+    if p1 > p2:
+        return eq1
+    if p2 > p1:
+        return eq2
+    return None
+
+
+def _merge_state(base: Dict[int, Dict[str, object]], saved: Dict[str, Dict[str, object]]) -> Dict[int, Dict[str, object]]:
+    merged = {k: dict(v) for k, v in base.items()}
+    for key, data in saved.items():
+        try:
+            mid = int(key)
+        except ValueError:
+            continue
+        if mid not in merged:
+            continue
+        match = merged[mid]
+        if data.get("equipo1") == match.get("equipo1") and data.get("equipo2") == match.get("equipo2"):
+            for field in ("goles1", "goles2", "pen1", "pen2"):
+                match[field] = data.get(field)
+    return merged
+
+
+def _propagar(matches: Dict[int, Dict[str, object]]) -> None:
+    for _ in range(3):
+        for mid in sorted(matches):
+            matches[mid]["ganador"] = _winner(matches[mid]) or ""
+
+        cambios = False
+        for src, dst, slot in PROGRESION:
+            ganador = matches[src]["ganador"]
+            clave = "equipo1" if slot == 1 else "equipo2"
+            actual = matches[dst].get(clave) or ""
+            if ganador != actual:
+                matches[dst][clave] = ganador
+                matches[dst]["goles1"] = None
+                matches[dst]["goles2"] = None
+                matches[dst]["pen1"] = None
+                matches[dst]["pen2"] = None
+                cambios = True
+        if not cambios:
+            break
+
+    for mid in sorted(matches):
+        matches[mid]["ganador"] = _winner(matches[mid]) or ""
+
+
+def _load_bracket() -> Dict[int, Dict[str, object]]:
+    base = _bracket_skeleton()
+    guardado: Dict[str, Dict[str, object]] = {}
+    if LLAVES_STATE.exists():
+        try:
+            guardado = json.loads(LLAVES_STATE.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            guardado = {}
+
+    merged = _merge_state(base, guardado)
+    _propagar(merged)
+    return merged
+
+
+def _save_bracket(matches: Dict[int, Dict[str, object]]) -> None:
+    LLAVES_STATE.write_text(json.dumps(matches, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def _bracket_payload(matches: Dict[int, Dict[str, object]]) -> Dict[str, object]:
+    rounds: Dict[str, List[Dict[str, object]]] = {}
+    for match in sorted(matches.values(), key=lambda m: m["id"]):
+        round_key = match["round"]
+        rounds.setdefault(round_key, []).append(
+            {
+                "id": match["id"],
+                "round": ROUND_NAMES.get(round_key, round_key),
+                "equipo1": match["equipo1"],
+                "equipo2": match["equipo2"],
+                "goles1": match["goles1"],
+                "goles2": match["goles2"],
+                "pen1": match["pen1"],
+                "pen2": match["pen2"],
+                "ganador": match["ganador"],
+            }
+        )
+    ordered = [
+        {"id": key, "label": ROUND_NAMES[key], "matches": rounds.get(key, [])}
+        for key in ("R32", "R16", "QF", "SF", "F")
+    ]
+    return {"rounds": ordered}
+
+
 class GruposHandler(SimpleHTTPRequestHandler):
     """Manejador HTTP con endpoints API y contenido estático."""
 
     def do_GET(self):  # noqa: N802 - API http
         if self.path.startswith("/api/groups"):
             return self._handle_api_get()
+        if self.path.startswith("/api/bracket"):
+            return self._handle_bracket_get()
         if self.path == "/":
             self.path = "/index.html"
         if self.path in {"/grupos.csv", "/ResultadoGrupos.csv"}:
@@ -403,6 +729,8 @@ class GruposHandler(SimpleHTTPRequestHandler):
             return self._handle_api_post()
         if self.path == "/api/reset":
             return self._handle_reset()
+        if self.path.startswith("/api/bracket"):
+            return self._handle_bracket_post()
         self.send_error(HTTPStatus.NOT_FOUND, "Ruta no encontrada")
 
     def _handle_api_get(self):
@@ -522,6 +850,55 @@ class GruposHandler(SimpleHTTPRequestHandler):
             return self._send_json({"error": str(exc)}, status=HTTPStatus.NOT_FOUND)
         _reiniciar_partidos(grupos)
         return self._send_json({"ok": True, "grupos": {g: recalcular_grupo(eq) for g, eq in grupos.items()}})
+
+    def _handle_bracket_get(self):
+        try:
+            matches = _load_bracket()
+        except Exception as exc:  # noqa: BLE001
+            return self._send_json({"error": str(exc)}, status=HTTPStatus.BAD_REQUEST)
+
+        return self._send_json(_bracket_payload(matches))
+
+    def _handle_bracket_post(self):
+        longitud = int(self.headers.get("Content-Length", 0))
+        cuerpo = self.rfile.read(longitud) if longitud else b""
+        try:
+            data = json.loads(cuerpo.decode("utf-8"))
+        except json.JSONDecodeError:
+            return self._send_json({"error": "JSON inválido"}, status=HTTPStatus.BAD_REQUEST)
+
+        match_id = int(data.get("matchId", 0))
+        if match_id <= 0:
+            return self._send_json({"error": "matchId requerido"}, status=HTTPStatus.BAD_REQUEST)
+
+        try:
+            matches = _load_bracket()
+        except Exception as exc:  # noqa: BLE001
+            return self._send_json({"error": str(exc)}, status=HTTPStatus.BAD_REQUEST)
+
+        if match_id not in matches:
+            return self._send_json({"error": "Llave no encontrada"}, status=HTTPStatus.NOT_FOUND)
+
+        match = matches[match_id]
+
+        def _leer_campo(nombre: str) -> Optional[int]:
+            valor = data.get(nombre)
+            if valor is None:
+                return None
+            try:
+                return int(valor)
+            except (TypeError, ValueError):
+                return None
+
+        match["goles1"] = _leer_campo("goles1")
+        match["goles2"] = _leer_campo("goles2")
+        match["pen1"] = _leer_campo("pen1")
+        match["pen2"] = _leer_campo("pen2")
+
+        _propagar(matches)
+        _save_bracket(matches)
+
+        return self._send_json(_bracket_payload(matches))
 
     def _send_json(self, data, status: HTTPStatus = HTTPStatus.OK):
         payload = json.dumps(data).encode("utf-8")

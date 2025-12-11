@@ -10,22 +10,21 @@
       <div class="page">
         <div class="sticky-shell">
           <div class="container">
-            <div class="hero">
+            <div class="hero tight">
               <div class="hero-title">
                 <a class="pill link-pill" href="./index.html">⟵ Fase de grupos</a>
-                <h1 id="title">Grupo</h1>
+                <div class="hero-inline">
+                  <h1 id="title">Grupo</h1>
+                  <div class="group-nav inline">
+                    <button class="button secondary icon" id="prev" aria-label="Grupo anterior">⟵</button>
+                    <div class="pill muted" id="stepper">A</div>
+                    <button class="button secondary icon" id="next" aria-label="Grupo siguiente">⟶</button>
+                  </div>
+                </div>
                 <button class="button secondary icon-text" id="reset-group" type="button">⟳ Reiniciar</button>
               </div>
-              <p class="subtitle">Actualiza estadísticas directamente sobre <strong>ResultadoGrupos.csv</strong> y sincroniza la clasificación al instante.</p>
+              <p class="subtitle">Actualiza estadísticas sobre <strong>ResultadoGrupos.csv</strong> y sincroniza la clasificación al instante.</p>
             </div>
-            <header>
-              <p class="subtitle">Navega entre grupos</p>
-              <div class="group-nav">
-                <button class="button secondary icon" id="prev" aria-label="Grupo anterior">⟵</button>
-                <div class="pill muted" id="stepper">A</div>
-                <button class="button secondary icon" id="next" aria-label="Grupo siguiente">⟶</button>
-              </div>
-            </header>
           </div>
 
           <div class="container summary-wrap">
@@ -36,19 +35,19 @@
           </div>
         </div>
 
-      <div class="container content-column">
-        <section class="card matches-card">
-          <p class="helper">Captura los marcadores de los 6 partidos. Los puntos y la diferencia de goles se recalculan automáticamente.</p>
-          <div class="journey-nav" id="journey-nav"></div>
-          <div id="matches-container"></div>
-          <div class="form-actions">
-            <span class="subtitle" id="status"></span>
-          </div>
-        </section>
-      </div>
+        <div class="container content-column">
+          <section class="card matches-card">
+            <p class="helper">Captura los marcadores de los 6 partidos. Los puntos y la diferencia de goles se recalculan automáticamente.</p>
+            <div class="journey-nav" id="journey-nav"></div>
+            <div id="matches-container"></div>
+            <div class="form-actions">
+              <span class="subtitle" id="status"></span>
+            </div>
+          </section>
+        </div>
 
-      <footer>Usa las flechas para navegar grupo a grupo · 2026</footer>
-    </div>
+        <footer>Usa las flechas para navegar grupo a grupo · 2026</footer>
+      </div>
     <script src="./js/grupo.js" type="module"></script>
   </body>
 </html>
