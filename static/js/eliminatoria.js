@@ -9,7 +9,7 @@ function shortName(name) {
   return name.length > 18 ? `${name.slice(0, 16)}…` : name;
 }
 
-function matchCard(match) {
+function matchCard(match, roundLabel) {
   const card = document.createElement("div");
   card.className = "match-node";
   card.dataset.id = match.id;
@@ -52,7 +52,7 @@ function matchCard(match) {
 
   const header = document.createElement("div");
   header.className = "bracket-header";
-  header.textContent = `${match.round} · Llave ${match.id}`;
+  header.textContent = `${roundLabel} · Llave ${match.id}`;
 
   const rows = document.createElement("div");
   rows.className = "match-rows";
@@ -88,44 +88,24 @@ function render(bracket) {
   if (!bracket) return;
   renderThirds(bracket.bestThirds);
   grid.innerHTML = "";
-  const matchMap = new Map();
+  if (!bracket.rounds?.length) return;
+
   bracket.rounds.forEach((round) => {
-    round.matches.forEach((match) => matchMap.set(match.id, { ...match, round: round.label }));
-  });
-
-  const columns = [
-    { label: "Dieciseisavos", ids: Array.from({ length: 16 }, (_, i) => i + 1) },
-    { label: "Octavos", ids: Array.from({ length: 8 }, (_, i) => i + 17) },
-    { label: "Cuartos", ids: Array.from({ length: 4 }, (_, i) => i + 25) },
-    { label: "Semifinal", ids: [29, 30] },
-    { label: "Final", ids: [31] },
-    { label: "Tercer lugar", ids: [32] },
-  ];
-
-  const board = document.createElement("div");
-  board.className = "bracket-columns";
-
-  columns.forEach((column) => {
     const section = document.createElement("section");
-    section.className = "round-column";
+    section.className = "round-block";
 
     const title = document.createElement("h3");
     title.className = "round-title";
-    title.textContent = column.label;
+    title.textContent = round.label;
     section.appendChild(title);
 
     const matchesWrap = document.createElement("div");
-    matchesWrap.className = "round-column-matches";
-    column.ids
-      .map((id) => matchMap.get(id))
-      .filter(Boolean)
-      .forEach((match) => matchesWrap.appendChild(matchCard(match)));
-
+    matchesWrap.className = "round-matches";
+    round.matches.forEach((match) => matchesWrap.appendChild(matchCard(match, round.label)));
     section.appendChild(matchesWrap);
-    board.appendChild(section);
-  });
 
-  grid.appendChild(board);
+    grid.appendChild(section);
+  });
 }
 
 async function loadBracket() {

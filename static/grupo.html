@@ -7,47 +7,41 @@
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body class="group-edit">
-      <div class="page">
-        <div class="sticky-shell">
-          <div class="container">
-            <div class="hero tight">
-              <div class="hero-title">
-                <a class="pill link-pill" href="./index.html">⟵ Fase de grupos</a>
-                <div class="hero-inline">
-                  <h1 id="title">Grupo</h1>
-                  <div class="group-nav inline">
-                    <button class="button secondary icon" id="prev" aria-label="Grupo anterior">⟵</button>
-                    <div class="pill muted" id="stepper">A</div>
-                    <button class="button secondary icon" id="next" aria-label="Grupo siguiente">⟶</button>
-                  </div>
-                </div>
-                <button class="button secondary icon-text" id="reset-group" type="button">⟳ Reiniciar</button>
+    <div class="page">
+      <div class="container">
+        <div class="hero tight">
+          <div class="hero-title">
+            <a class="pill link-pill" href="./index.html">⟵ Fase de grupos</a>
+            <div class="hero-inline">
+              <h1 id="title">Grupo</h1>
+              <div class="group-nav inline">
+                <button class="button secondary icon" id="prev" aria-label="Grupo anterior">⟵</button>
+                <div class="pill muted" id="stepper">A</div>
+                <button class="button secondary icon" id="next" aria-label="Grupo siguiente">⟶</button>
               </div>
-              <p class="subtitle">Actualiza estadísticas sobre <strong>ResultadoGrupos.csv</strong> y sincroniza la clasificación al instante.</p>
             </div>
+            <button class="button secondary icon-text" id="reset-group" type="button">⟳ Reiniciar</button>
           </div>
-
-          <div class="container summary-wrap">
-            <section class="card compact summary-card">
-              <p class="helper">Resumen del grupo recalculado al vuelo.</p>
-              <div id="tabla-container"></div>
-            </section>
-          </div>
+          <p class="subtitle">Actualiza estadísticas sobre <strong>ResultadoGrupos.csv</strong> y sincroniza la clasificación al instante.</p>
         </div>
 
-        <div class="container content-column">
-          <section class="card matches-card">
-            <p class="helper">Captura los marcadores de los 6 partidos. Los puntos y la diferencia de goles se recalculan automáticamente.</p>
-            <div class="journey-nav" id="journey-nav"></div>
-            <div id="matches-container"></div>
-            <div class="form-actions">
-              <span class="subtitle" id="status"></span>
-            </div>
-          </section>
-        </div>
+        <section class="card compact summary-card">
+          <p class="helper">Resumen del grupo recalculado al vuelo.</p>
+          <div id="tabla-container"></div>
+        </section>
 
-        <footer>Usa las flechas para navegar grupo a grupo · 2026</footer>
+        <section class="card matches-card">
+          <p class="helper">Captura los marcadores de los 6 partidos. Los puntos y la diferencia de goles se recalculan automáticamente.</p>
+          <div class="journey-nav" id="journey-nav"></div>
+          <div id="matches-container"></div>
+          <div class="form-actions">
+            <span class="subtitle" id="status"></span>
+          </div>
+        </section>
       </div>
+
+      <footer>Usa las flechas para navegar grupo a grupo · 2026</footer>
+    </div>
     <script src="./js/grupo.js" type="module"></script>
   </body>
 </html>
