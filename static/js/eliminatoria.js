@@ -1,4 +1,5 @@
 const grid = document.getElementById("bracket-grid");
+const thirdsGrid = document.getElementById("thirds-grid");
 const syncBtn = document.getElementById("sync");
 const statusEl = document.getElementById("status");
 let saveTimer;
@@ -8,7 +9,7 @@ function shortName(name) {
   return name.length > 18 ? `${name.slice(0, 16)}…` : name;
 }
 
-function matchCard(match) {
+function matchCard(match, showRound = true) {
   const card = document.createElement("div");
   card.className = "bracket-match";
   card.dataset.id = match.id;
@@ -46,12 +47,14 @@ function matchCard(match) {
     return wrap;
   };
 
-  const header = document.createElement("div");
-  header.className = "bracket-header";
-  header.textContent = `${match.round} · Llave ${match.id}`;
+  if (showRound) {
+    const header = document.createElement("div");
+    header.className = "bracket-header";
+    header.textContent = `${match.round} · Llave ${match.id}`;
+    card.append(header);
+  }
 
   card.append(
-    header,
     row(match.equipo1, "goles1", "pen1"),
     row(match.equipo2, "goles2", "pen2"),
   );
@@ -64,18 +67,65 @@ function matchCard(match) {
   return card;
 }
 
-function render(bracket) {
-  if (!bracket?.rounds) return;
-  grid.innerHTML = "";
-  bracket.rounds.forEach((round) => {
-    const col = document.createElement("div");
-    col.className = "bracket-column";
-    const title = document.createElement("h3");
-    title.textContent = round.label;
-    col.appendChild(title);
-    round.matches.forEach((match) => col.appendChild(matchCard(match)));
-    grid.appendChild(col);
+function renderThirds(list) {
+  thirdsGrid.innerHTML = "";
+  if (!list?.length) {
+    const empty = document.createElement("p");
+    empty.className = "muted";
+    empty.textContent = "No se pudo calcular la lista de terceros.";
+    thirdsGrid.appendChild(empty);
+    return;
+  }
+
+  list.forEach((item, index) => {
+    const chip = document.createElement("div");
+    chip.className = "third-chip";
+    chip.innerHTML = `<span class="rank">${index + 1}</span><span class="name">${item.pais}</span><span class="meta">${item.grupo} · ${item.pts} pts · DG ${item.DG} · GF ${item.GF}</span>`;
+    thirdsGrid.appendChild(chip);
   });
+}
+
+function render(bracket) {
+  if (!bracket) return;
+  renderThirds(bracket.bestThirds);
+  grid.innerHTML = "";
+
+  const wrapper = document.createElement("div");
+  wrapper.className = "bracket-wrapper";
+
+  const renderSide = (rounds, side) => {
+    const sideEl = document.createElement("div");
+    sideEl.className = `bracket-side ${side}`;
+    rounds.forEach((round) => {
+      const col = document.createElement("div");
+      col.className = "bracket-column";
+      const title = document.createElement("h3");
+      title.textContent = round.label;
+      col.appendChild(title);
+      round.matches.forEach((match) => col.appendChild(matchCard(match)));
+      sideEl.appendChild(col);
+    });
+    return sideEl;
+  };
+
+  const center = document.createElement("div");
+  center.className = "bracket-center";
+  const finalBlock = document.createElement("div");
+  finalBlock.className = "center-block";
+  const finalTitle = document.createElement("h3");
+  finalTitle.textContent = "Final";
+  finalBlock.append(finalTitle, matchCard(bracket.center.final, false));
+
+  const thirdBlock = document.createElement("div");
+  thirdBlock.className = "center-block";
+  const thirdTitle = document.createElement("h3");
+  thirdTitle.textContent = "Tercer lugar";
+  thirdBlock.append(thirdTitle, matchCard(bracket.center.third, false));
+
+  center.append(finalBlock, thirdBlock);
+
+  wrapper.append(renderSide(bracket.left, "left"), center, renderSide(bracket.right, "right"));
+  grid.appendChild(wrapper);
 }
 
 async function loadBracket() {

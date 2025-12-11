@@ -524,6 +524,7 @@ ROUND_NAMES = {
     "QF": "Cuartos de final",
     "SF": "Semifinales",
     "F": "Final",
+    "T3": "Tercer lugar",
 }
 
 
@@ -536,6 +537,8 @@ def _round_for_match(match_id: int) -> str:
         return "QF"
     if match_id <= 30:
         return "SF"
+    if match_id == 32:
+        return "T3"
     return "F"
 
 
@@ -593,7 +596,7 @@ def _bracket_skeleton() -> Dict[int, Dict[str, object]]:
     for match_id, eq1, eq2 in llaves:
         matches[match_id] = _match_template(match_id, eq1, eq2)
 
-    for match_id in range(17, 32):
+    for match_id in range(17, 33):
         if match_id not in matches:
             matches[match_id] = _match_template(match_id)
 
@@ -626,6 +629,32 @@ def _winner(match: Dict[str, object]) -> Optional[str]:
     return None
 
 
+def _loser(match: Dict[str, object]) -> Optional[str]:
+    eq1 = match.get("equipo1") or ""
+    eq2 = match.get("equipo2") or ""
+    if not eq1 or not eq2:
+        return None
+
+    g1 = match.get("goles1")
+    g2 = match.get("goles2")
+    if g1 is None or g2 is None:
+        return None
+    if g1 < g2:
+        return eq1
+    if g2 < g1:
+        return eq2
+
+    p1 = match.get("pen1")
+    p2 = match.get("pen2")
+    if p1 is None or p2 is None:
+        return None
+    if p1 < p2:
+        return eq1
+    if p2 < p1:
+        return eq2
+    return None
+
+
 def _merge_state(base: Dict[int, Dict[str, object]], saved: Dict[str, Dict[str, object]]) -> Dict[int, Dict[str, object]]:
     merged = {k: dict(v) for k, v in base.items()}
     for key, data in saved.items():
@@ -636,7 +665,12 @@ def _merge_state(base: Dict[int, Dict[str, object]], saved: Dict[str, Dict[str, 
         if mid not in merged:
             continue
         match = merged[mid]
-        if data.get("equipo1") == match.get("equipo1") and data.get("equipo2") == match.get("equipo2"):
+        mismos = data.get("equipo1") == match.get("equipo1") and data.get("equipo2") == match.get("equipo2")
+        libres = not match.get("equipo1") and not match.get("equipo2")
+        if mismos or libres:
+            if libres:
+                match["equipo1"] = data.get("equipo1", "")
+                match["equipo2"] = data.get("equipo2", "")
             for field in ("goles1", "goles2", "pen1", "pen2"):
                 match[field] = data.get(field)
     return merged
@@ -665,6 +699,20 @@ def _propagar(matches: Dict[int, Dict[str, object]]) -> None:
     for mid in sorted(matches):
         matches[mid]["ganador"] = _winner(matches[mid]) or ""
 
+    tercer_partido = matches.get(32)
+    if tercer_partido is not None:
+        perdedor_izq = _loser(matches.get(29, {}))
+        perdedor_der = _loser(matches.get(30, {}))
+        for slot, nuevo in enumerate((perdedor_izq, perdedor_der), start=1):
+            clave = "equipo1" if slot == 1 else "equipo2"
+            if nuevo != tercer_partido.get(clave):
+                tercer_partido[clave] = nuevo or ""
+                tercer_partido["goles1"] = None
+                tercer_partido["goles2"] = None
+                tercer_partido["pen1"] = None
+                tercer_partido["pen2"] = None
+        tercer_partido["ganador"] = _winner(tercer_partido) or ""
+
 
 def _load_bracket() -> Dict[int, Dict[str, object]]:
     base = _bracket_skeleton()
@@ -684,28 +732,78 @@ def _save_bracket(matches: Dict[int, Dict[str, object]]) -> None:
     LLAVES_STATE.write_text(json.dumps(matches, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
-def _bracket_payload(matches: Dict[int, Dict[str, object]]) -> Dict[str, object]:
-    rounds: Dict[str, List[Dict[str, object]]] = {}
-    for match in sorted(matches.values(), key=lambda m: m["id"]):
-        round_key = match["round"]
-        rounds.setdefault(round_key, []).append(
+LEFT_R32 = [1, 2, 3, 4, 5, 6, 7, 8]
+RIGHT_R32 = [9, 10, 11, 12, 13, 14, 15, 16]
+LEFT_R16 = [17, 18, 19, 20]
+RIGHT_R16 = [21, 22, 23, 24]
+LEFT_QF = [25, 26]
+RIGHT_QF = [27, 28]
+LEFT_SF = [29]
+RIGHT_SF = [30]
+
+
+def _best_thirds_payload() -> List[Dict[str, object]]:
+    try:
+        terceros = _terceros_ordenados(_leer_resultados_finales())
+    except Exception:
+        return []
+    top = terceros[:8]
+    resultado: List[Dict[str, object]] = []
+    for fila in top:
+        resultado.append(
             {
-                "id": match["id"],
-                "round": ROUND_NAMES.get(round_key, round_key),
-                "equipo1": match["equipo1"],
-                "equipo2": match["equipo2"],
-                "goles1": match["goles1"],
-                "goles2": match["goles2"],
-                "pen1": match["pen1"],
-                "pen2": match["pen2"],
-                "ganador": match["ganador"],
+                "grupo": fila.get("grupo", ""),
+                "pais": fila.get("pais", ""),
+                "pts": fila.get("pts", 0),
+                "DG": fila.get("DG", 0),
+                "GF": fila.get("GF", 0),
             }
         )
-    ordered = [
-        {"id": key, "label": ROUND_NAMES[key], "matches": rounds.get(key, [])}
-        for key in ("R32", "R16", "QF", "SF", "F")
+    return resultado
+
+
+def _serialize_match(match: Dict[str, object]) -> Dict[str, object]:
+    return {
+        "id": match["id"],
+        "round": ROUND_NAMES.get(match["round"], match["round"]),
+        "equipo1": match.get("equipo1", ""),
+        "equipo2": match.get("equipo2", ""),
+        "goles1": match.get("goles1"),
+        "goles2": match.get("goles2"),
+        "pen1": match.get("pen1"),
+        "pen2": match.get("pen2"),
+        "ganador": match.get("ganador", ""),
+    }
+
+
+def _matches_by_ids(matches: Dict[int, Dict[str, object]], ids: List[int]) -> List[Dict[str, object]]:
+    serializados: List[Dict[str, object]] = []
+    for mid in ids:
+        if mid in matches:
+            serializados.append(_serialize_match(matches[mid]))
+    return serializados
+
+
+def _bracket_payload(matches: Dict[int, Dict[str, object]]) -> Dict[str, object]:
+    left = [
+        {"label": ROUND_NAMES["R32"], "matches": _matches_by_ids(matches, LEFT_R32)},
+        {"label": ROUND_NAMES["R16"], "matches": _matches_by_ids(matches, LEFT_R16)},
+        {"label": ROUND_NAMES["QF"], "matches": _matches_by_ids(matches, LEFT_QF)},
+        {"label": ROUND_NAMES["SF"], "matches": _matches_by_ids(matches, LEFT_SF)},
     ]
-    return {"rounds": ordered}
+    right = [
+        {"label": ROUND_NAMES["R32"], "matches": _matches_by_ids(matches, RIGHT_R32)},
+        {"label": ROUND_NAMES["R16"], "matches": _matches_by_ids(matches, RIGHT_R16)},
+        {"label": ROUND_NAMES["QF"], "matches": _matches_by_ids(matches, RIGHT_QF)},
+        {"label": ROUND_NAMES["SF"], "matches": _matches_by_ids(matches, RIGHT_SF)},
+    ]
+
+    center = {
+        "final": _serialize_match(matches.get(31, _match_template(31))),
+        "third": _serialize_match(matches.get(32, _match_template(32))),
+    }
+
+    return {"left": left, "right": right, "center": center, "bestThirds": _best_thirds_payload()}
 
 
 class GruposHandler(SimpleHTTPRequestHandler):

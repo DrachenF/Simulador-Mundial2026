@@ -416,14 +416,28 @@ input[type="number"] {
   margin: 4px 0 10px;
 }
 
+
 .bracket-card {
-  padding: 12px;
+  padding: 16px;
+  overflow-x: auto;
 }
 
-.bracket-grid {
+.bracket-wrapper {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  grid-template-columns: 1fr auto 1fr;
+  gap: 18px;
+  align-items: start;
+  min-width: 1100px;
+}
+
+.bracket-side {
+  display: flex;
   gap: 12px;
+  align-items: flex-start;
+}
+
+.bracket-side.right {
+  flex-direction: row-reverse;
 }
 
 .bracket-column {
@@ -435,29 +449,49 @@ input[type="number"] {
 .bracket-column h3 {
   margin: 0;
   color: var(--muted);
-  font-size: 0.95rem;
+  font-size: 0.92rem;
   letter-spacing: 0.01em;
 }
 
 .bracket-match {
   border: 1px solid var(--border);
   border-radius: 12px;
-  padding: 10px;
+  padding: 12px;
   background: rgba(255, 255, 255, 0.02);
   display: flex;
   flex-direction: column;
   gap: 6px;
+  min-width: 190px;
+}
+
+.bracket-center {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  align-items: center;
+  justify-content: center;
+}
+
+.center-block {
+  width: 230px;
+  text-align: center;
+}
+
+.center-block h3 {
+  margin: 0 0 8px;
+  color: var(--muted);
+  font-size: 0.95rem;
 }
 
 .bracket-header {
   font-weight: 700;
   color: var(--muted);
-  font-size: 0.9rem;
+  font-size: 0.85rem;
 }
 
 .bracket-row {
   display: grid;
-  grid-template-columns: 1fr 66px 70px;
+  grid-template-columns: 1fr 60px 64px;
   gap: 6px;
   align-items: center;
 }
@@ -502,6 +536,48 @@ input[type="number"] {
   color: var(--accent);
   font-weight: 700;
   min-height: 18px;
+}
+
+.thirds-card {
+  margin-bottom: 14px;
+}
+
+.thirds-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.third-chip {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 10px 12px;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  grid-template-rows: auto auto;
+  column-gap: 8px;
+  row-gap: 2px;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.third-chip .rank {
+  grid-row: span 2;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-weight: 800;
+  color: var(--text);
+}
+
+.third-chip .name {
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.third-chip .meta {
+  color: var(--muted);
+  font-size: 0.9rem;
 }
 
 .journey-nav .pill {
