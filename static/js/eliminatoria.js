@@ -124,7 +124,9 @@ function render(bracket) {
 
   center.append(finalBlock, thirdBlock);
 
-  wrapper.append(renderSide(bracket.left, "left"), center, renderSide(bracket.right, "right"));
+  const left = renderSide(bracket.left, "left");
+  const right = renderSide(bracket.right, "right");
+  wrapper.append(left, right, center);
   grid.appendChild(wrapper);
 }
 
