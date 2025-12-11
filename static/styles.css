@@ -54,6 +54,10 @@ h1 {
   font-size: 0.92rem;
 }
 
+.group-edit .hero .subtitle {
+  margin: 2px 0 0;
+}
+
 .container {
   width: min(1180px, 95vw);
   margin: 0 auto 8px;
@@ -65,6 +69,7 @@ h1 {
 
 .group-edit .container {
   align-items: center;
+  gap: 10px;
 }
 
 .hero {
@@ -77,14 +82,14 @@ h1 {
 }
 
 .group-edit .hero {
-  max-width: 980px;
-  margin: 6px auto 2px;
+  max-width: 940px;
+  margin: 6px auto 0px;
   align-items: center;
   text-align: center;
 }
 
 .hero.tight {
-  padding: 6px 10px 8px;
+  padding: 4px 10px 6px;
 }
 
 .cta-row {
@@ -106,7 +111,7 @@ h1 {
 .group-edit .hero-title {
   justify-content: center;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 8px;
 }
 
 .hero-inline {
@@ -173,14 +178,15 @@ h1 {
 .summary-card {
   min-height: unset;
   align-items: center;
-  padding: 8px 12px;
+  padding: 6px 10px;
   gap: 4px;
   max-width: 760px;
 }
 
 .group-edit .summary-card {
-  width: min(760px, 100%);
+  width: min(880px, 100%);
   align-self: center;
+  margin-top: 0;
 }
 
 .group-edit .summary-wrap {
@@ -190,11 +196,12 @@ h1 {
 
 .matches-card {
   gap: 10px;
-  padding-top: 12px;
+  padding-top: 10px;
 }
 
 .group-edit .matches-card {
-  width: min(1000px, 100%);
+  width: min(940px, 100%);
+  margin-top: 2px;
 }
 
 .card::after {
@@ -389,11 +396,10 @@ input[type="number"] {
 }
 
 .journey-title {
-  margin: 12px 0 10px;
+  margin: 10px 0 8px;
   font-size: 1.08rem;
   color: #e6edf7;
   text-align: center;
-  scroll-margin-top: 120px;
 }
 
 .divider {
