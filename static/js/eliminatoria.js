@@ -88,27 +88,44 @@ function render(bracket) {
   if (!bracket) return;
   renderThirds(bracket.bestThirds);
   grid.innerHTML = "";
-
-  const list = document.createElement("div");
-  list.className = "bracket-list";
-
+  const matchMap = new Map();
   bracket.rounds.forEach((round) => {
-    const block = document.createElement("section");
-    block.className = "round-block";
-    const title = document.createElement("h3");
-    title.className = "round-title";
-    title.textContent = round.label;
-    block.appendChild(title);
-
-    const matches = document.createElement("div");
-    matches.className = "round-matches";
-    round.matches.forEach((match) => matches.appendChild(matchCard(match)));
-
-    block.appendChild(matches);
-    list.appendChild(block);
+    round.matches.forEach((match) => matchMap.set(match.id, { ...match, round: round.label }));
   });
 
-  grid.appendChild(list);
+  const columns = [
+    { label: "Dieciseisavos", ids: Array.from({ length: 16 }, (_, i) => i + 1) },
+    { label: "Octavos", ids: Array.from({ length: 8 }, (_, i) => i + 17) },
+    { label: "Cuartos", ids: Array.from({ length: 4 }, (_, i) => i + 25) },
+    { label: "Semifinal", ids: [29, 30] },
+    { label: "Final", ids: [31] },
+    { label: "Tercer lugar", ids: [32] },
+  ];
+
+  const board = document.createElement("div");
+  board.className = "bracket-columns";
+
+  columns.forEach((column) => {
+    const section = document.createElement("section");
+    section.className = "round-column";
+
+    const title = document.createElement("h3");
+    title.className = "round-title";
+    title.textContent = column.label;
+    section.appendChild(title);
+
+    const matchesWrap = document.createElement("div");
+    matchesWrap.className = "round-column-matches";
+    column.ids
+      .map((id) => matchMap.get(id))
+      .filter(Boolean)
+      .forEach((match) => matchesWrap.appendChild(matchCard(match)));
+
+    section.appendChild(matchesWrap);
+    board.appendChild(section);
+  });
+
+  grid.appendChild(board);
 }
 
 async function loadBracket() {
