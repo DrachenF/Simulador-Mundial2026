@@ -503,7 +503,8 @@ input[type="number"] {
   gap: 4px;
 }
 
-.match-row {
+/* Estilo de filas SOLO dentro del bracket */
+.bracket-card .match-row {
   display: grid;
   grid-template-columns: auto 1fr 42px 42px;
   gap: 6px;
