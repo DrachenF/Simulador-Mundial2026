@@ -9,9 +9,9 @@ function shortName(name) {
   return name.length > 18 ? `${name.slice(0, 16)}…` : name;
 }
 
-function matchCard(match, flow = "") {
+function matchCard(match) {
   const card = document.createElement("div");
-  card.className = `match-node ${flow}`.trim();
+  card.className = "match-node";
   card.dataset.id = match.id;
   const needsPens = match.goles1 !== null && match.goles2 !== null && match.goles1 === match.goles2;
 
@@ -89,41 +89,26 @@ function render(bracket) {
   renderThirds(bracket.bestThirds);
   grid.innerHTML = "";
 
-  const canvas = document.createElement("div");
-  canvas.className = "bracket-canvas";
+  const list = document.createElement("div");
+  list.className = "bracket-list";
 
-  const board = document.createElement("div");
-  board.className = "bracket-board";
-
-  const renderRound = (round, flowDir) => {
-    const col = document.createElement("div");
-    col.className = "round-column";
-    const title = document.createElement("h4");
+  bracket.rounds.forEach((round) => {
+    const block = document.createElement("section");
+    block.className = "round-block";
+    const title = document.createElement("h3");
     title.className = "round-title";
     title.textContent = round.label;
-    col.appendChild(title);
-    round.matches.forEach((match) => col.appendChild(matchCard(match, flowDir)));
-    return col;
-  };
+    block.appendChild(title);
 
-  bracket.left.forEach((round) => board.appendChild(renderRound(round, "flow-right")));
+    const matches = document.createElement("div");
+    matches.className = "round-matches";
+    round.matches.forEach((match) => matches.appendChild(matchCard(match)));
 
-  const center = document.createElement("div");
-  center.className = "round-column center-stack";
-  const finalTitle = document.createElement("h4");
-  finalTitle.className = "round-title";
-  finalTitle.textContent = "Final";
-  const thirdTitle = document.createElement("h4");
-  thirdTitle.className = "round-title";
-  thirdTitle.textContent = "Tercer lugar";
-  center.append(finalTitle, matchCard(bracket.center.final), thirdTitle, matchCard(bracket.center.third));
+    block.appendChild(matches);
+    list.appendChild(block);
+  });
 
-  board.appendChild(center);
-
-  bracket.right.forEach((round) => board.appendChild(renderRound(round, "flow-left")));
-
-  canvas.appendChild(board);
-  grid.appendChild(canvas);
+  grid.appendChild(list);
 }
 
 async function loadBracket() {

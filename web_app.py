@@ -801,25 +801,16 @@ def _matches_by_ids(matches: Dict[int, Dict[str, object]], ids: List[int]) -> Li
 
 
 def _bracket_payload(matches: Dict[int, Dict[str, object]]) -> Dict[str, object]:
-    left = [
-        {"label": ROUND_NAMES["R32"], "matches": _matches_by_ids(matches, LEFT_R32)},
-        {"label": ROUND_NAMES["R16"], "matches": _matches_by_ids(matches, LEFT_R16)},
-        {"label": ROUND_NAMES["QF"], "matches": _matches_by_ids(matches, LEFT_QF)},
-        {"label": ROUND_NAMES["SF"], "matches": _matches_by_ids(matches, LEFT_SF)},
-    ]
-    right = [
-        {"label": ROUND_NAMES["R32"], "matches": _matches_by_ids(matches, RIGHT_R32)},
-        {"label": ROUND_NAMES["R16"], "matches": _matches_by_ids(matches, RIGHT_R16)},
-        {"label": ROUND_NAMES["QF"], "matches": _matches_by_ids(matches, RIGHT_QF)},
-        {"label": ROUND_NAMES["SF"], "matches": _matches_by_ids(matches, RIGHT_SF)},
+    rounds = [
+        {"label": ROUND_NAMES["R32"], "matches": _matches_by_ids(matches, list(range(1, 17)))},
+        {"label": ROUND_NAMES["R16"], "matches": _matches_by_ids(matches, list(range(17, 25)))},
+        {"label": ROUND_NAMES["QF"], "matches": _matches_by_ids(matches, list(range(25, 29)))},
+        {"label": ROUND_NAMES["SF"], "matches": _matches_by_ids(matches, [29, 30])},
+        {"label": ROUND_NAMES["T3"], "matches": _matches_by_ids(matches, [32])},
+        {"label": ROUND_NAMES["F"], "matches": _matches_by_ids(matches, [31])},
     ]
 
-    center = {
-        "final": _serialize_match(matches.get(31, _match_template(31))),
-        "third": _serialize_match(matches.get(32, _match_template(32))),
-    }
-
-    return {"left": left, "right": right, "center": center, "bestThirds": _best_thirds_payload()}
+    return {"rounds": rounds, "bestThirds": _best_thirds_payload()}
 
 
 class GruposHandler(SimpleHTTPRequestHandler):

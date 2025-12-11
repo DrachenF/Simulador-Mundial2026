@@ -431,37 +431,33 @@ input[type="number"] {
   box-shadow: 0 25px 60px rgba(0, 0, 0, 0.45);
 }
 
-.bracket-canvas {
+.bracket-list {
   display: flex;
   flex-direction: column;
-  gap: 22px;
-}
-
-.bracket-board {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(140px, 1fr)) minmax(160px, 1fr) repeat(4, minmax(140px, 1fr));
   gap: 18px;
-  align-items: start;
-  width: 100%;
 }
 
-.round-column {
+.round-block {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  position: relative;
+  gap: 10px;
 }
 
 .round-title {
   margin: 0;
+  font-size: 0.9rem;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
-  font-size: 0.8rem;
-  letter-spacing: 0.08em;
-  color: rgba(255, 255, 255, 0.5);
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.round-matches {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 10px;
 }
 
 .match-node {
-  position: relative;
   background: linear-gradient(90deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.02));
   border: 1px solid rgba(255, 255, 255, 0.09);
   border-radius: 10px;
@@ -477,25 +473,6 @@ input[type="number"] {
   font-size: 0.78rem;
   letter-spacing: 0.03em;
   font-weight: 700;
-}
-
-.match-node.flow-right::after,
-.match-node.flow-left::after {
-  content: "";
-  position: absolute;
-  top: 50%;
-  width: 26px;
-  height: 1px;
-  background: rgba(255, 255, 255, 0.12);
-  transform: translateY(-50%);
-}
-
-.match-node.flow-right::after {
-  right: -26px;
-}
-
-.match-node.flow-left::after {
-  left: -26px;
 }
 
 .match-rows {
