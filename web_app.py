@@ -483,7 +483,11 @@ def _equipo_por_posicion(tabla: Dict[str, List[Dict[str, object]]], grupo: str, 
     equipos = tabla.get(grupo.upper(), [])
     if pos <= 0 or pos > len(equipos):
         raise ValueError(f"No hay equipo en la posición {pos} del grupo {grupo}")
-    return equipos[pos - 1]["pais"]
+    equipo = equipos[pos - 1]
+    nombre = equipo.get("pais", "")
+    pj = int(equipo.get("pj", 0))
+    # Solo mostramos al equipo si completó sus tres partidos de grupo
+    return nombre if pj >= 3 else ""
 
 
 def _equipo_tercero(tabla: Dict[str, List[Dict[str, object]]], clave: Optional[str]) -> str:
