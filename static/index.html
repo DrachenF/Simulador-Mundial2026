@@ -93,8 +93,13 @@
           </section>
 
           <section class="card bracket-card">
-            <div class="bracket-shell">
-              <div class="bracket-grid" id="bracket-grid"></div>
+            <div class="bracket-shell" id="bracket-viewport">
+              <div class="bracket-grid" id="bracket-grid">
+                <svg class="bracket-lines" id="bracket-lines" aria-hidden="true"></svg>
+                <div class="side" id="left-side"></div>
+                <div class="center" id="center-block"></div>
+                <div class="side mirror" id="right-side"></div>
+              </div>
             </div>
           </section>
         </div>

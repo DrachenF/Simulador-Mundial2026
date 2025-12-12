@@ -457,100 +457,144 @@ input[type="number"] {
   background: linear-gradient(135deg, rgba(10, 12, 17, 0.92), rgba(7, 9, 14, 0.96));
   border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: 16px;
-  padding: 14px 12px 18px;
+  padding: 16px;
   box-shadow: 0 25px 60px rgba(0, 0, 0, 0.45);
-  overflow-x: hidden;
+  overflow: hidden;
 }
 
 .bracket-grid {
+  position: relative;
   display: flex;
-  flex-direction: column;
-  gap: 14px;
-  align-items: center;
+  gap: 24px;
+  align-items: flex-start;
+  min-height: 720px;
+  transform-origin: top left;
 }
 
-.round-title {
-  margin: 0;
-  font-size: 0.82rem;
-  letter-spacing: 0.05em;
+.bracket-lines {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.side {
+  display: flex;
+  gap: 18px;
+  align-items: flex-start;
+  position: relative;
+}
+
+.side.mirror {
+  flex-direction: row-reverse;
+}
+
+.round-col {
+  width: 220px;
+  position: relative;
+  padding-top: 26px;
+  min-height: 640px;
+}
+
+.round-col .rt {
+  position: absolute;
+  top: 0;
+  left: 0;
+  font-size: 12px;
+  color: var(--muted);
+  letter-spacing: 0.8px;
   text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.68);
-  text-align: center;
 }
 
-.round-matches {
+.center {
+  position: relative;
+  width: 260px;
+  padding-top: 26px;
+  min-height: 640px;
   display: flex;
-  flex-direction: column;
-  gap: 8px;
+  align-items: flex-start;
+  justify-content: flex-start;
 }
 
-.round-block {
+.center .block {
+  width: 260px;
+  position: relative;
+  height: 640px;
+}
+
+.center .rt {
+  position: absolute;
+  left: 0;
+  font-size: 12px;
+  color: var(--muted);
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+}
+
+.bracket-match {
+  position: absolute;
   width: 100%;
-  max-width: 840px;
+  height: 70px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.25);
+}
+
+.team-row {
   display: flex;
-  flex-direction: column;
-  gap: 10px;
-  margin: 0 auto;
-}
-
-.match-node {
-  background: linear-gradient(90deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.02));
-  border: 1px solid rgba(255, 255, 255, 0.09);
-  border-radius: 10px;
-  padding: 6px 8px;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  min-height: 56px;
-  width: 100%;
-}
-
-.bracket-header {
-  color: rgba(255, 255, 255, 0.6);
-  font-size: 0.72rem;
-  letter-spacing: 0.03em;
-  font-weight: 700;
-}
-
-.match-rows {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-/* Estilo de filas SOLO dentro del bracket */
-.bracket-card .match-row {
-  display: grid;
-  grid-template-columns: auto 1fr 42px 42px;
-  gap: 6px;
   align-items: center;
+  justify-content: space-between;
+  height: 50%;
+  padding: 10px 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  gap: 10px;
 }
 
-.team-chip {
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  border: 1px solid rgba(255, 255, 255, 0.25);
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.05));
+.team-row:last-child {
+  border-bottom: none;
+}
+
+.team-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.seed-chip {
+  width: 38px;
+  height: 22px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, rgba(111, 163, 255, 0.24), rgba(95, 230, 201, 0.24));
+  border: 1px solid rgba(255, 255, 255, 0.2);
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: #0b1623;
+  color: #061018;
   font-weight: 800;
-  font-size: 0.8rem;
+  font-size: 0.78rem;
 }
 
-.team-name {
+.team-label {
   color: #f6f7fb;
   font-weight: 600;
-  font-size: 0.95rem;
+  font-size: 0.92rem;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
+.scorebox {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
 .score-input {
-  width: 100%;
+  width: 54px;
   text-align: center;
   background: #0f172a;
   color: #e9edf5;
@@ -576,6 +620,7 @@ input[type="number"] {
   align-items: center;
   gap: 4px;
   color: var(--muted);
+  font-size: 0.8rem;
 }
 
 .pen-box.hidden {
@@ -584,13 +629,6 @@ input[type="number"] {
 
 .pen {
   padding: 6px 6px;
-}
-
-.winner {
-  color: var(--accent);
-  font-weight: 700;
-  min-height: 18px;
-  font-size: 0.9rem;
 }
 
 .thirds-card {

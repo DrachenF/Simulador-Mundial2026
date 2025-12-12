@@ -494,66 +494,263 @@ async function resetGroup() {
 // ====================
 // Eliminatoria
 // ====================
-function shortName(name) {
-  if (!name) return "";
-  return name.length > 18 ? `${name.slice(0, 16)}…` : name;
+
+const MATCH_HEIGHT = 70;
+const MATCH_GAP = 18;
+
+const LEFT_LAYOUT = {
+  R32: [1, 2, 3, 4, 5, 6, 7, 8],
+  R16: [17, 18, 19, 20],
+  QF: [25, 26],
+  SF: [29],
+};
+
+const RIGHT_LAYOUT = {
+  R32: [9, 10, 11, 12, 13, 14, 15, 16],
+  R16: [21, 22, 23, 24],
+  QF: [27, 28],
+  SF: [30],
+};
+
+const ROUND_TITLES = {
+  R32: "Dieciseisavos",
+  R16: "Octavos",
+  QF: "Cuartos",
+  SF: "Semifinal",
+};
+
+function nextForMatch(id) {
+  if (id <= 16) return 17 + Math.floor((id - 1) / 2);
+  if (id <= 24) return 25 + Math.floor((id - 17) / 2);
+  if (id <= 28) return 29 + Math.floor((id - 25) / 2);
+  if (id <= 30) return 31;
+  return "";
 }
 
-function matchCard(match, roundLabel) {
-  const card = document.createElement("div");
-  card.className = "match-node";
-  card.dataset.id = match.id;
+function makeInput(value, name, extraClass = "") {
+  const input = document.createElement("input");
+  input.type = "number";
+  input.min = "0";
+  input.step = "1";
+  input.name = name;
+  input.className = `score-input ${extraClass}`.trim();
+  input.value = value ?? "";
+  input.placeholder = "";
+  input.inputMode = "numeric";
+  return input;
+}
+
+function makeTeamRow(match, nameKey, seedKey, goalsKey, penKey) {
+  const row = document.createElement("div");
+  row.className = "team-row";
+
+  const info = document.createElement("div");
+  info.className = "team-info";
+
+  const seed = document.createElement("span");
+  seed.className = "seed-chip";
+  seed.textContent = match[seedKey] || "—";
+
+  const label = document.createElement("span");
+  label.className = "team-label";
+  label.textContent = match[nameKey] || match[seedKey] || "";
+
+  info.append(seed, label);
+
   const needsPens = match.goles1 !== null && match.goles2 !== null && match.goles1 === match.goles2;
+  const scorebox = document.createElement("div");
+  scorebox.className = "scorebox";
 
-  const makeInput = (value, cls, name) => {
-    const input = document.createElement("input");
-    input.type = "number";
-    input.min = "0";
-    input.value = value ?? "";
-    input.name = name;
-    input.className = cls;
-    input.addEventListener("input", () => scheduleBracketSave(match.id));
-    return input;
+  const goals = makeInput(match[goalsKey], goalsKey);
+  const penWrap = document.createElement("div");
+  penWrap.className = `pen-box ${needsPens || match[penKey] !== null ? "" : "hidden"}`;
+  penWrap.append("P", makeInput(match[penKey], penKey, "pen"));
+
+  scorebox.append(goals, penWrap);
+  row.append(info, scorebox);
+  return row;
+}
+
+function buildMatchCard(match) {
+  const node = document.createElement("div");
+  node.className = "bracket-match";
+  node.dataset.id = match.id;
+  const next = nextForMatch(match.id);
+  if (next) node.dataset.next = String(next);
+
+  node.append(
+    makeTeamRow(match, "equipo1", "semilla1", "goles1", "pen1"),
+    makeTeamRow(match, "equipo2", "semilla2", "goles2", "pen2"),
+  );
+
+  return node;
+}
+
+function buildRoundColumn(roundKey, ids, matchLookup) {
+  const col = document.createElement("div");
+  col.className = "round-col";
+  col.dataset.round = roundKey;
+
+  const label = document.createElement("div");
+  label.className = "rt";
+  label.textContent = ROUND_TITLES[roundKey] || roundKey;
+  col.appendChild(label);
+
+  ids.forEach((id) => {
+    const data = matchLookup.get(id) || { id, semilla1: "", semilla2: "" };
+    col.appendChild(buildMatchCard(data));
+  });
+
+  return col;
+}
+
+function buildSide(sideEl, layout, matchLookup) {
+  sideEl.innerHTML = "";
+  Object.entries(layout).forEach(([key, ids]) => {
+    sideEl.appendChild(buildRoundColumn(key, ids, matchLookup));
+  });
+}
+
+function buildCenter(matchLookup) {
+  const center = document.getElementById("center-block");
+  if (!center) return;
+  center.innerHTML = "";
+
+  const block = document.createElement("div");
+  block.className = "block";
+
+  const finalLabel = document.createElement("div");
+  finalLabel.className = "rt";
+  finalLabel.textContent = "Final";
+  finalLabel.style.top = "-26px";
+
+  const thirdLabel = document.createElement("div");
+  thirdLabel.className = "rt";
+  thirdLabel.textContent = "Tercer lugar";
+
+  const finalMatch = buildMatchCard(matchLookup.get(31) || { id: 31, semilla1: "", semilla2: "" });
+  finalMatch.style.position = "absolute";
+  finalMatch.style.left = "0px";
+
+  const thirdMatch = buildMatchCard(matchLookup.get(32) || { id: 32, semilla1: "", semilla2: "" });
+  thirdMatch.style.position = "absolute";
+  thirdMatch.style.left = "0px";
+
+  block.append(finalLabel, finalMatch, thirdLabel, thirdMatch);
+  center.appendChild(block);
+}
+
+function layoutColumn(roundEl) {
+  const matches = Array.from(roundEl.querySelectorAll(".bracket-match"));
+  matches.forEach((m, i) => {
+    const top = i * (MATCH_HEIGHT + MATCH_GAP);
+    m.style.top = `${top}px`;
+    m.dataset.centerY = (top + MATCH_HEIGHT / 2).toString();
+  });
+  const minH = matches.length * MATCH_HEIGHT + (matches.length - 1) * MATCH_GAP + 26;
+  roundEl.style.minHeight = `${Math.max(640, minH)}px`;
+  return matches;
+}
+
+function layoutNextRound(roundEl, prevMatches) {
+  const matches = Array.from(roundEl.querySelectorAll(".bracket-match"));
+  matches.forEach((m, i) => {
+    const c1 = prevMatches[i * 2];
+    const c2 = prevMatches[i * 2 + 1];
+    const y1 = Number(c1?.dataset.centerY ?? 0);
+    const y2 = Number(c2?.dataset.centerY ?? 0);
+    const centerY = (y1 + y2) / 2;
+    m.style.top = `${centerY - MATCH_HEIGHT / 2}px`;
+    m.dataset.centerY = centerY.toString();
+  });
+  return matches;
+}
+
+function placeCenterMatches() {
+  const bracket = document.getElementById("bracket-grid");
+  if (!bracket) return;
+
+  const rect = bracket.getBoundingClientRect();
+  const lsf = bracket.querySelector('.bracket-match[data-id="29"]')?.getBoundingClientRect();
+  const rsf = bracket.querySelector('.bracket-match[data-id="30"]')?.getBoundingClientRect();
+  const final = bracket.querySelector('.bracket-match[data-id="31"]');
+  const third = bracket.querySelector('.bracket-match[data-id="32"]');
+  const labels = bracket.querySelectorAll("#center-block .rt");
+  const finalLabel = labels[0];
+  const thirdLabel = labels[1];
+
+  if (lsf && rsf && final) {
+    const y = (lsf.top + lsf.height / 2 + (rsf.top + rsf.height / 2) - 2 * rect.top) / 2;
+    final.style.top = `${y - MATCH_HEIGHT / 2}px`;
+    if (finalLabel) finalLabel.style.top = "-26px";
+
+    const offset = 140;
+    if (third) {
+      const thirdTop = y + offset - MATCH_HEIGHT / 2;
+      third.style.top = `${thirdTop}px`;
+      if (thirdLabel) thirdLabel.style.top = `${thirdTop - 26}px`;
+    }
+  }
+}
+
+function drawConnectors() {
+  const svg = document.getElementById("bracket-lines");
+  const bracket = document.getElementById("bracket-grid");
+  if (!svg || !bracket) return;
+  const rect = bracket.getBoundingClientRect();
+
+  svg.setAttribute("viewBox", `0 0 ${rect.width} ${rect.height}`);
+  svg.innerHTML = "";
+
+  const addPath = (x1, y1, x2, y2) => {
+    const midX = (x1 + x2) / 2;
+    const d = `M ${x1} ${y1} H ${midX} V ${y2} H ${x2}`;
+    const p = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    p.setAttribute("d", d);
+    p.setAttribute("fill", "none");
+    p.setAttribute("stroke", getComputedStyle(document.documentElement).getPropertyValue("--border") || "rgba(255,255,255,.25)");
+    p.setAttribute("stroke-width", "2");
+    p.setAttribute("stroke-linecap", "round");
+    svg.appendChild(p);
   };
 
-  const row = (team, gKey, pKey) => {
-    const wrap = document.createElement("div");
-    wrap.className = "match-row";
-    const chip = document.createElement("span");
-    chip.className = "team-chip";
-    chip.textContent = match[gKey === "goles1" ? "semilla1" : "semilla2"] || "";
+  const matches = Array.from(document.querySelectorAll(".bracket-match[data-next]") || []);
+  matches.forEach((m) => {
+    const nextId = m.dataset.next;
+    if (!nextId) return;
+    const n = document.querySelector(`.bracket-match[data-id="${nextId}"]`);
+    if (!n) return;
 
-    const name = document.createElement("span");
-    name.className = "team-name";
-    name.textContent = team || "";
+    const a = m.getBoundingClientRect();
+    const b = n.getBoundingClientRect();
 
-    const goals = makeInput(match[gKey], "score-input", gKey);
-    goals.placeholder = "";
+    const mCenterY = a.top - rect.top + a.height / 2;
+    const nCenterY = b.top - rect.top + b.height / 2;
 
-    const penBox = document.createElement("div");
-    penBox.className = `pen-box ${needsPens || match[pKey] !== null ? "" : "hidden"}`;
-    const pen = makeInput(match[pKey], "score-input pen", pKey);
-    pen.placeholder = "p";
-    penBox.append("P", pen);
+    const mCenterX = a.left - rect.left + a.width / 2;
+    const nCenterX = b.left - rect.left + b.width / 2;
 
-    wrap.append(chip, name, goals, penBox);
-    return wrap;
-  };
+    const fromX = nCenterX > mCenterX ? a.right - rect.left : a.left - rect.left;
+    const toX = nCenterX > mCenterX ? b.left - rect.left : b.right - rect.left;
 
-  const header = document.createElement("div");
-  header.className = "bracket-header";
-  header.textContent = `${roundLabel} · Llave ${match.id}`;
+    addPath(fromX, mCenterY, toX, nCenterY);
+  });
+}
 
-  const rows = document.createElement("div");
-  rows.className = "match-rows";
-  rows.append(row(match.equipo1, "goles1", "pen1"), row(match.equipo2, "goles2", "pen2"));
+function fitBracketToWidth() {
+  const viewport = document.getElementById("bracket-viewport");
+  const bracket = document.getElementById("bracket-grid");
+  if (!viewport || !bracket) return;
 
-  const winner = document.createElement("div");
-  winner.className = "winner";
-  winner.textContent = match.ganador ? `→ ${shortName(match.ganador)}` : "";
+  bracket.style.transform = "scale(1)";
+  drawConnectors();
 
-  card.append(header, rows, winner);
-  return card;
+  const available = viewport.clientWidth;
+  const needed = bracket.scrollWidth;
+  const scale = Math.min(1, available / needed || 1);
+
+  bracket.style.transform = `scale(${scale})`;
+  viewport.style.height = `${bracket.scrollHeight * scale}px`;
 }
 
 function renderThirds(list) {
@@ -577,25 +774,42 @@ function renderThirds(list) {
 function renderBracket(bracket) {
   if (!bracket) return;
   renderThirds(bracket.bestThirds);
-  bracketGrid.innerHTML = "";
-  if (!bracket.rounds?.length) return;
+  if (!bracket.rounds?.length || !bracketGrid) return;
 
+  const matchLookup = new Map();
   bracket.rounds.forEach((round) => {
-    const section = document.createElement("section");
-    section.className = "round-block";
-
-    const title = document.createElement("h3");
-    title.className = "round-title";
-    title.textContent = round.label;
-    section.appendChild(title);
-
-    const matchesWrap = document.createElement("div");
-    matchesWrap.className = "round-matches";
-    round.matches.forEach((match) => matchesWrap.appendChild(matchCard(match, round.label)));
-    section.appendChild(matchesWrap);
-
-    bracketGrid.appendChild(section);
+    round.matches.forEach((m) => matchLookup.set(m.id, m));
   });
+
+  bracketGrid.innerHTML = `
+    <svg class="bracket-lines" id="bracket-lines" aria-hidden="true"></svg>
+    <div class="side" id="left-side"></div>
+    <div class="center" id="center-block"></div>
+    <div class="side mirror" id="right-side"></div>
+  `;
+
+  const leftSide = document.getElementById("left-side");
+  const rightSide = document.getElementById("right-side");
+
+  if (leftSide && rightSide) {
+    buildSide(leftSide, LEFT_LAYOUT, matchLookup);
+    buildSide(rightSide, RIGHT_LAYOUT, matchLookup);
+    buildCenter(matchLookup);
+
+    const layoutSide = (sideEl) => {
+      const cols = Array.from(sideEl.querySelectorAll(".round-col"));
+      if (!cols.length) return;
+      let prev = layoutColumn(cols[0]);
+      for (let i = 1; i < cols.length; i += 1) {
+        prev = layoutNextRound(cols[i], prev);
+      }
+    };
+
+    layoutSide(leftSide);
+    layoutSide(rightSide);
+    placeCenterMatches();
+    fitBracketToWidth();
+  }
 }
 
 async function loadBracket() {
@@ -607,6 +821,7 @@ async function loadBracket() {
     renderBracket(data);
     bracketStatus.textContent = "Listo";
     bracketLoaded = true;
+    fitBracketToWidth();
   } catch (err) {
     bracketStatus.textContent = err.message;
   }
@@ -617,7 +832,7 @@ async function refreshBracket() {
 }
 
 async function saveMatch(matchId) {
-  const card = bracketGrid.querySelector(`.match-node[data-id="${matchId}"]`);
+  const card = bracketGrid.querySelector(`.bracket-match[data-id="${matchId}"]`);
   if (!card) return;
   const payload = { matchId };
   card.querySelectorAll("input").forEach((input) => {
@@ -665,10 +880,15 @@ matchesContainer?.addEventListener("input", (event) => {
   }
 });
 bracketGrid?.addEventListener("input", (event) => {
-  const card = event.target.closest(".match-node");
+  const card = event.target.closest(".bracket-match");
   if (!card) return;
   const matchId = Number(card.dataset.id);
   scheduleBracketSave(matchId);
+});
+window.addEventListener("resize", () => {
+  if (bracketLoaded) {
+    fitBracketToWidth();
+  }
 });
 detailPrevBtn?.addEventListener("click", () => cycleGroup(-1));
 detailNextBtn?.addEventListener("click", () => cycleGroup(1));
