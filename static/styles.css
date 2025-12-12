@@ -693,6 +693,12 @@ footer {
   align-items: center;
 }
 
+.group-tab-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
 .group-tab-row .tab {
   padding: 8px 10px;
   min-width: 38px;

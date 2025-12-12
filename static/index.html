@@ -21,7 +21,12 @@
             Consulta y edita el desempeño de los 12 grupos con estadísticas en vivo desde
             <strong>ResultadoGrupos.csv</strong> (o <strong>grupos.csv</strong> si es la primera carga).
           </p>
-          <div class="group-tab-row" id="group-tabs" aria-label="Selecciona un grupo" role="tablist"></div>
+          <div class="group-tab-wrapper" id="group-tabs-wrapper">
+            <div class="group-tab-row" aria-label="Mostrar todos los grupos" role="tablist">
+              <button class="tab active" id="all-groups-tab" type="button" aria-selected="true">A-L</button>
+            </div>
+            <div class="group-tab-row" id="group-tabs" aria-label="Selecciona un grupo" role="tablist"></div>
+          </div>
         </div>
       </div>
 

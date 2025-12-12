@@ -1,6 +1,8 @@
 const phaseTabs = document.querySelectorAll("[data-phase]");
 const phasePanels = document.querySelectorAll("[data-phase-panel]");
 const groupTabsRow = document.getElementById("group-tabs");
+const allGroupsTab = document.getElementById("all-groups-tab");
+const groupTabsWrapper = document.getElementById("group-tabs-wrapper");
 const groupsContainer = document.getElementById("groups");
 const refreshBtn = document.getElementById("refresh");
 const statusPill = document.getElementById("status-pill");
@@ -15,6 +17,7 @@ const tablaContainer = document.getElementById("tabla-container");
 const journeyNav = document.getElementById("journey-nav");
 const matchesContainer = document.getElementById("matches-container");
 const groupStatus = document.getElementById("group-status");
+const groupDetailSection = document.getElementById("group-detail");
 
 // Eliminatoria
 const bracketGrid = document.getElementById("bracket-grid");
@@ -41,12 +44,12 @@ function setPhase(phase) {
   });
 
   if (phase === "elimination") {
-    groupTabsRow.classList.add("hidden");
+    groupTabsWrapper?.classList.add("hidden");
     if (!bracketLoaded) {
       loadBracket();
     }
   } else {
-    groupTabsRow.classList.remove("hidden");
+    groupTabsWrapper?.classList.remove("hidden");
   }
 }
 
@@ -75,6 +78,22 @@ function setActiveGroupTab(id) {
     tab.classList.toggle("active", isActive);
     tab.setAttribute("aria-selected", String(isActive));
   });
+}
+
+function setGroupView(target) {
+  const showAll = !target || target === "all";
+  groupsContainer?.classList.toggle("hidden", !showAll);
+  groupDetailSection?.classList.toggle("hidden", showAll);
+
+  if (allGroupsTab) {
+    allGroupsTab.classList.toggle("active", showAll);
+    allGroupsTab.setAttribute("aria-selected", String(showAll));
+  }
+
+  setActiveGroupTab(showAll ? null : target);
+  if (showAll) {
+    currentGroup = null;
+  }
 }
 
 async function fetchGroups() {
@@ -255,6 +274,7 @@ async function renderOverview() {
     const keys = Object.keys(groups).sort();
     gruposDisponibles = data.gruposDisponibles || keys;
     renderGroupTabs(gruposDisponibles);
+    setGroupView("all");
     if (!keys.length) {
       groupsContainer.innerHTML = "<p class='subtitle'>No hay grupos registrados. Verifica que el CSV tenga datos.</p>";
     } else {
@@ -400,7 +420,7 @@ async function loadGroup(id) {
 
 function activateGroup(id) {
   setPhase("groups");
-  setActiveGroupTab(id);
+  setGroupView(id);
   loadGroup(id);
 }
 
@@ -635,6 +655,10 @@ groupsContainer?.addEventListener("click", (event) => {
   if (button) {
     activateGroup(button.dataset.group);
   }
+});
+allGroupsTab?.addEventListener("click", () => {
+  setPhase("groups");
+  setGroupView("all");
 });
 matchesContainer?.addEventListener("input", (event) => {
   if (event.target && event.target.matches("input[type='number']")) {
