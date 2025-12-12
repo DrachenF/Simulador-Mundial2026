@@ -508,6 +508,14 @@ def _terceros_listos(tabla: Dict[str, List[dict]]) -> bool:
 
 
 def _llaves_placeholder(tabla: Dict[str, List[dict]]) -> List[Tuple[int, Dict[str, str], Dict[str, str]]]:
+    """
+    Construye el armazón visible mientras las combinaciones de terceros no están listas.
+
+    Los lugares fijos (primeros y segundos) se rellenan con el nombre del equipo
+    apenas completan sus tres partidos, para que aparezcan en eliminatorias sin
+    esperar al cálculo de terceros.
+    """
+
     vacio = {"nombre": "", "semilla": ""}
 
     def equipo_fijo(grupo: str, pos: int) -> Dict[str, str]:
