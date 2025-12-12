@@ -354,26 +354,27 @@ h1 {
 }
 
 .match-row {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(120px, 1fr) auto auto minmax(120px, 1fr);
   align-items: center;
-  justify-content: center;
-  gap: 12px;
-  padding: 10px 12px;
+  gap: clamp(10px, 2vw, 18px);
+  padding: 10px 14px;
   background: rgba(255, 255, 255, 0.02);
   border: 1px solid var(--border);
   border-radius: 12px;
-  margin: 0 auto 10px;
-  width: min(760px, 100%);
+  margin: 0 auto 12px;
+  width: min(860px, 100%);
 }
 
 .match-row input {
-  flex: 0 1 clamp(68px, 15vw, 96px);
+  width: clamp(68px, 12vw, 96px);
   padding: 10px;
   border-radius: 10px;
   border: 1px solid var(--border);
   background: #ffffff;
   color: #0a0f1a;
   text-align: center;
+  justify-self: center;
 }
 
 #matches-container {
@@ -384,13 +385,19 @@ h1 {
 }
 
 .match-row .team {
-  flex: 1 1 0;
   font-weight: 700;
-  text-align: center;
   min-width: 0;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.match-row .team:first-of-type {
+  text-align: right;
+}
+
+.match-row .team:last-of-type {
+  text-align: left;
 }
 
 input[type="number"]::-webkit-inner-spin-button,
@@ -770,7 +777,8 @@ footer {
 
   .match-row {
     gap: 10px;
-    width: min(640px, 100%);
+    width: min(700px, 100%);
+    grid-template-columns: minmax(110px, 1fr) auto auto minmax(110px, 1fr);
   }
 
   .match-row input {
@@ -797,6 +805,7 @@ footer {
   .match-row {
     padding: 10px 10px;
     gap: 8px;
+    grid-template-columns: minmax(96px, 1fr) auto auto minmax(96px, 1fr);
   }
 
   .match-row span.team {
@@ -806,6 +815,6 @@ footer {
 
   .match-row input {
     max-width: none;
-    flex-basis: clamp(64px, 20vw, 88px);
+    width: clamp(62px, 22vw, 86px);
   }
 }

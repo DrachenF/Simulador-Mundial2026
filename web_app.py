@@ -576,15 +576,18 @@ def _llaves_y_terceros(
     dirty = session.get("combination_dirty", True)
     combinaciones_listas = _terceros_listos(tabla)
 
-    if combinaciones_listas and not dirty and cache.get("llaves"):
-        return cache.get("llaves", []), cache.get("best_thirds", [])
-
     if not combinaciones_listas:
         session["combination_dirty"] = True
         return _llaves_placeholder(tabla), []
 
+    cadena_actual = _cadena_ultimos_terceros(_terceros_ordenados(sum(tabla.values(), [])))
+
+    if not dirty and cache.get("llaves") and cache.get("cadena") == cadena_actual:
+        return cache.get("llaves", []), cache.get("best_thirds", [])
+
     try:
-        llaves = _llaves_base(tabla)
+        combinacion = _buscar_combinacion(cadena_actual, _leer_combinaciones())
+        llaves = _construir_llaves(tabla, combinacion)
         best_thirds = _best_thirds_payload(tabla)
     except Exception:
         session["combination_dirty"] = True
@@ -593,7 +596,7 @@ def _llaves_y_terceros(
     session["combination_cache"] = {
         "llaves": llaves,
         "best_thirds": best_thirds,
-        "cadena": _cadena_ultimos_terceros(_terceros_ordenados(sum(tabla.values(), []))),
+        "cadena": cadena_actual,
     }
     session["combination_dirty"] = False
     return llaves, best_thirds
