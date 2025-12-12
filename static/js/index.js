@@ -403,6 +403,16 @@ function renderGroup(data) {
   renderMatches(data?.partidos || []);
 }
 
+function updateGroupCard(groupId, equipos) {
+  if (!groupId || !equipos || !groupsContainer) return;
+  const card = groupsContainer.querySelector(
+    `article.card button[data-group="${groupId}"]`
+  )?.closest("article.card");
+  if (!card) return;
+  const newCard = renderGroupCard(groupId, equipos);
+  card.replaceWith(newCard);
+}
+
 async function loadGroup(id) {
   groupStatus.textContent = "Cargando...";
   try {
@@ -466,6 +476,7 @@ async function save() {
     const data = await res.json();
     if (data?.equipos) {
       renderTabla(data.equipos);
+      updateGroupCard(currentGroup, data.equipos);
     }
     groupStatus.textContent = "Actualizado";
   } catch (err) {
