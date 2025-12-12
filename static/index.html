@@ -75,19 +75,28 @@
       </div>
 
       <div class="container full-bleed hidden" data-phase-panel="elimination">
-        <div class="card grouped-card">
-            <div class="card-header">
-              <div>
-                <p class="pill muted" id="bracket-status">Listo</p>
-                <h3 style="margin: 6px 0 4px;">Llaves de eliminatoria</h3>
-                <p class="muted">Sincroniza los cruces sin salir de la página.</p>
-              </div>
+        <section class="card elim-header">
+          <div class="card-header">
+            <div>
+              <p class="pill muted" id="bracket-status">Listo</p>
+              <h3 style="margin: 6px 0 4px;">Llaves de eliminatoria</h3>
+              <p class="muted">Sincroniza los cruces sin salir de la página.</p>
             </div>
 
+            <div class="cta-row" style="margin-top:0;">
+              <!-- Si ya tienes botón en JS, ponlo aquí. Si no, puedes borrar esto. -->
+              <!-- <button class="button" id="sync-bracket">Actualizar llaves</button> -->
+            </div>
+          </div>
+        </section>
+
+        <div class="elim-layout">
           <section class="card thirds-card">
             <div class="card-header">
-              <h3>8 mejores terceros</h3>
-              <p class="muted">Ordenados por puntos, diferencia de goles y goles a favor.</p>
+              <div>
+                <h3 style="margin:0;">8 mejores terceros</h3>
+                <p class="muted" style="margin:4px 0 0;">Ordenados por puntos, diferencia de goles y goles a favor.</p>
+              </div>
             </div>
             <div class="thirds-grid" id="thirds-grid"></div>
           </section>

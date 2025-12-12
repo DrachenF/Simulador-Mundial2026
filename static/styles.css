@@ -453,6 +453,25 @@ input[type="number"] {
   margin: 4px 0 10px;
 }
 
+[data-phase-panel="elimination"].container.full-bleed {
+  padding: 0 0 10px;
+}
+
+.elim-header {
+  padding: 6px 10px;
+}
+
+.elim-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+}
+
+.elim-layout > .card {
+  margin: 0;
+}
+
 
 
 .bracket-card {
