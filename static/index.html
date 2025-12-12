@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Fase de grupos | Simulador 2026</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="container">
+      <div class="hero">
+        <div class="hero-title">
+          <span class="pill">Mundial 2026</span>
+          <h1>Fase de grupos</h1>
+        </div>
+        <p class="subtitle">
+          Consulta y edita el desempeño de los 12 grupos con estadísticas en vivo desde
+          <strong>ResultadoGrupos.csv</strong> (o <strong>grupos.csv</strong> si es la primera carga).
+        </p>
+        <div class="cta-row">
+          <a class="button secondary" href="./index.html">Fase de grupos actual</a>
+          <a class="button" href="./eliminatoria.html">Eliminatoria</a>
+        </div>
+      </div>
+
+      <header>
+        <p class="subtitle">Grupos disponibles</p>
+        <div style="display: flex; gap: 10px; align-items: center;">
+          <span class="pill" id="status-pill">Listo para sincronizar</span>
+          <button class="button" id="refresh">Reiniciar</button>
+        </div>
+      </header>
+      <section class="grid" id="groups"></section>
+    </div>
+    <footer>Interfaz renovada para gestionar grupos A-L · 2026</footer>
+    <script src="./js/index.js" type="module"></script>
+  </body>
+</html>

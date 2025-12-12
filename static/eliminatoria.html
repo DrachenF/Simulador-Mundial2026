@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Eliminatoria | Simulador 2026</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="page">
+      <div class="container">
+        <div class="hero">
+          <div class="hero-title">
+            <a class="pill link-pill" href="./index.html">⟵ Fase de grupos</a>
+            <h1>Eliminatoria</h1>
+          </div>
+          <p class="subtitle">
+            Llaves generadas a partir de ResultadoGrupos.csv y Combinaciones.csv. Edita los marcadores para avanzar
+            automáticamente los ganadores.
+          </p>
+          <div class="cta-row">
+            <button class="button" id="sync">Actualizar llaves</button>
+            <span class="pill muted" id="status">Listo</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="container">
+        <section class="card thirds-card">
+          <div class="card-header">
+            <h3>8 mejores terceros</h3>
+            <p class="muted">Ordenados por puntos, diferencia de goles y goles a favor.</p>
+          </div>
+          <div class="thirds-grid" id="thirds-grid"></div>
+        </section>
+
+        <section class="card bracket-card">
+          <div class="bracket-shell">
+            <div class="bracket-grid" id="bracket-grid"></div>
+          </div>
+        </section>
+      </div>
+
+      <footer>Llaves de 16vos generadas desde clasificación de grupos · 2026</footer>
+    </div>
+    <script src="./js/eliminatoria.js" type="module"></script>
+  </body>
+</html>
