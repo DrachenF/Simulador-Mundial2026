@@ -62,6 +62,8 @@ def _bootstrap_session() -> dict:
         "partidos": partidos,
         "bracket": None,
         "semilla": grupos_base,
+        "combination_cache": {},
+        "combination_dirty": True,
     }
 
 
@@ -494,6 +496,46 @@ def _equipo_tercero(tabla: Dict[str, List[Dict[str, object]]], clave: Optional[s
     return _equipo_por_posicion(tabla, grupo, 3)
 
 
+def _terceros_listos(tabla: Dict[str, List[dict]]) -> bool:
+    if len(tabla) < 12:
+        return False
+    for equipos in tabla.values():
+        if len(equipos) < 3:
+            return False
+        if int(equipos[2].get("pj", 0)) < 3:
+            return False
+    return True
+
+
+def _llaves_placeholder(tabla: Dict[str, List[dict]]) -> List[Tuple[int, Dict[str, str], Dict[str, str]]]:
+    vacio = {"nombre": "", "semilla": ""}
+
+    def equipo_fijo(grupo: str, pos: int) -> Dict[str, str]:
+        try:
+            return _equipo_por_posicion(tabla, grupo, pos)
+        except Exception:
+            return {"nombre": "", "semilla": f"{grupo.upper()}{pos}"}
+
+    llaves: List[Tuple[int, Dict[str, str], Dict[str, str]]] = []
+    llaves.append((1, equipo_fijo("E", 1), vacio))
+    llaves.append((2, equipo_fijo("I", 1), vacio))
+    llaves.append((3, equipo_fijo("A", 2), equipo_fijo("B", 2)))
+    llaves.append((4, equipo_fijo("F", 1), equipo_fijo("C", 2)))
+    llaves.append((5, equipo_fijo("K", 2), equipo_fijo("L", 2)))
+    llaves.append((6, equipo_fijo("H", 1), equipo_fijo("J", 2)))
+    llaves.append((7, equipo_fijo("D", 1), vacio))
+    llaves.append((8, equipo_fijo("G", 1), vacio))
+    llaves.append((9, equipo_fijo("C", 1), equipo_fijo("F", 2)))
+    llaves.append((10, equipo_fijo("E", 2), equipo_fijo("I", 2)))
+    llaves.append((11, equipo_fijo("A", 1), vacio))
+    llaves.append((12, equipo_fijo("L", 1), vacio))
+    llaves.append((13, equipo_fijo("J", 1), equipo_fijo("H", 2)))
+    llaves.append((14, equipo_fijo("D", 2), equipo_fijo("G", 2)))
+    llaves.append((15, equipo_fijo("B", 1), vacio))
+    llaves.append((16, equipo_fijo("K", 1), vacio))
+    return llaves
+
+
 def _construir_llaves(tabla: Dict[str, List[Dict[str, object]]], combinacion: Dict[str, str]) -> List[Tuple[int, Dict[str, str], Dict[str, str]]]:
     llaves: List[Tuple[int, Dict[str, str], Dict[str, str]]] = []
     llaves.append((1, _equipo_por_posicion(tabla, "E", 1), _equipo_tercero(tabla, combinacion.get("1E"))))
@@ -525,6 +567,36 @@ def _llaves_base(tabla: Dict[str, List[dict]]) -> List[Tuple[int, str, str]]:
     cadena = _cadena_ultimos_terceros(_terceros_ordenados(sum(tabla.values(), [])))
     combinacion = _buscar_combinacion(cadena, combinaciones)
     return _construir_llaves(tabla, combinacion)
+
+
+def _llaves_y_terceros(
+    session: dict, tabla: Dict[str, List[dict]]
+) -> Tuple[List[Tuple[int, Dict[str, str], Dict[str, str]]], List[Dict[str, object]]]:
+    cache = session.get("combination_cache") or {}
+    dirty = session.get("combination_dirty", True)
+    combinaciones_listas = _terceros_listos(tabla)
+
+    if combinaciones_listas and not dirty and cache.get("llaves"):
+        return cache.get("llaves", []), cache.get("best_thirds", [])
+
+    if not combinaciones_listas:
+        session["combination_dirty"] = True
+        return _llaves_placeholder(tabla), []
+
+    try:
+        llaves = _llaves_base(tabla)
+        best_thirds = _best_thirds_payload(tabla)
+    except Exception:
+        session["combination_dirty"] = True
+        return _llaves_placeholder(tabla), []
+
+    session["combination_cache"] = {
+        "llaves": llaves,
+        "best_thirds": best_thirds,
+        "cadena": _cadena_ultimos_terceros(_terceros_ordenados(sum(tabla.values(), []))),
+    }
+    session["combination_dirty"] = False
+    return llaves, best_thirds
 
 
 ROUND_NAMES = {
@@ -607,8 +679,10 @@ def _match_template(
     }
 
 
-def _bracket_skeleton(tabla: Dict[str, List[dict]]) -> Dict[int, Dict[str, object]]:
-    llaves = _llaves_base(tabla)
+def _bracket_skeleton(
+    tabla: Dict[str, List[dict]], llaves: Optional[List[Tuple[int, Dict[str, str], Dict[str, str]]]] = None
+) -> Dict[int, Dict[str, object]]:
+    llaves = llaves or _llaves_base(tabla)
     matches: Dict[int, Dict[str, object]] = {}
     for match_id, eq1, eq2 in llaves:
         matches[match_id] = _match_template(match_id, eq1["nombre"], eq2["nombre"], eq1["semilla"], eq2["semilla"])
@@ -742,8 +816,10 @@ def _propagar(matches: Dict[int, Dict[str, object]]) -> None:
         tercer_partido["ganador"] = _winner(tercer_partido) or ""
 
 
-def _load_bracket(session: dict, tabla: Dict[str, List[dict]]) -> Dict[int, Dict[str, object]]:
-    base = _bracket_skeleton(tabla)
+def _load_bracket(
+    session: dict, tabla: Dict[str, List[dict]], llaves: Optional[List[Tuple[int, Dict[str, str], Dict[str, str]]]] = None
+) -> Dict[int, Dict[str, object]]:
+    base = _bracket_skeleton(tabla, llaves)
     guardado: Dict[str, Dict[str, object]] = session.get("bracket") or {}
 
     merged = _merge_state(base, guardado)
@@ -811,7 +887,9 @@ def _matches_by_ids(matches: Dict[int, Dict[str, object]], ids: List[int]) -> Li
     return serializados
 
 
-def _bracket_payload(matches: Dict[int, Dict[str, object]], tabla: Dict[str, List[dict]]) -> Dict[str, object]:
+def _bracket_payload(
+    matches: Dict[int, Dict[str, object]], tabla: Dict[str, List[dict]], best_thirds: Optional[List[Dict[str, object]]] = None
+) -> Dict[str, object]:
     rounds = [
         {"label": ROUND_NAMES["R32"], "matches": _matches_by_ids(matches, list(range(1, 17)))},
         {"label": ROUND_NAMES["R16"], "matches": _matches_by_ids(matches, list(range(17, 25)))},
@@ -821,7 +899,8 @@ def _bracket_payload(matches: Dict[int, Dict[str, object]], tabla: Dict[str, Lis
         {"label": ROUND_NAMES["F"], "matches": _matches_by_ids(matches, [31])},
     ]
 
-    return {"rounds": rounds, "bestThirds": _best_thirds_payload(tabla)}
+    payload_terceros = best_thirds if best_thirds is not None else _best_thirds_payload(tabla)
+    return {"rounds": rounds, "bestThirds": payload_terceros}
 
 
 class GruposHandler(SimpleHTTPRequestHandler):
@@ -956,6 +1035,8 @@ class GruposHandler(SimpleHTTPRequestHandler):
                 partidos_guardados.pop(grupo_id, None)
                 session["partidos"] = partidos_guardados
         session["bracket"] = None
+        session["combination_dirty"] = True
+        session["combination_cache"] = {}
 
         return self._send_json(
             {
@@ -982,6 +1063,8 @@ class GruposHandler(SimpleHTTPRequestHandler):
         grupos[grupo_id] = recalcular_grupo(base[grupo_id], mantener_orden=True)
         session["grupos"] = grupos
         session["bracket"] = None
+        session["combination_dirty"] = True
+        session["combination_cache"] = {}
 
         partidos_guardados = session.get("partidos", {})
         partidos_guardados[grupo_id] = _calendario_base(grupo_id, [e["pais"] for e in base[grupo_id]])
@@ -996,6 +1079,8 @@ class GruposHandler(SimpleHTTPRequestHandler):
     def _handle_reset(self):
         session = self._ensure_session()
         session.update(_bootstrap_session())
+        session["combination_dirty"] = True
+        session["combination_cache"] = {}
         return self._send_json(
             {
                 "ok": True,
@@ -1007,12 +1092,13 @@ class GruposHandler(SimpleHTTPRequestHandler):
     def _handle_bracket_get(self):
         session = self._ensure_session()
         tabla = self._table_from_session(session)
+        llaves, best_thirds = _llaves_y_terceros(session, tabla)
         try:
-            matches = _load_bracket(session, tabla)
+            matches = _load_bracket(session, tabla, llaves)
         except Exception as exc:  # noqa: BLE001
             return self._send_json({"error": str(exc)}, status=HTTPStatus.BAD_REQUEST)
 
-        return self._send_json(_bracket_payload(matches, tabla))
+        return self._send_json(_bracket_payload(matches, tabla, best_thirds))
 
     def _handle_bracket_post(self):
         session = self._ensure_session()
@@ -1029,7 +1115,8 @@ class GruposHandler(SimpleHTTPRequestHandler):
             return self._send_json({"error": "matchId requerido"}, status=HTTPStatus.BAD_REQUEST)
 
         try:
-            matches = _load_bracket(session, tabla)
+            llaves, _ = _llaves_y_terceros(session, tabla)
+            matches = _load_bracket(session, tabla, llaves)
         except Exception as exc:  # noqa: BLE001
             return self._send_json({"error": str(exc)}, status=HTTPStatus.BAD_REQUEST)
 
