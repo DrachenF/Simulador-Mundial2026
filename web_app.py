@@ -1076,4 +1076,20 @@ def run_server(host: str = "0.0.0.0", port: int = 8000) -> None:
 
 
 if __name__ == "__main__":
-    run_server()
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Servidor web para simulador Mundial 2026")
+    parser.add_argument(
+        "--host",
+        default=os.environ.get("SIMULADOR_HOST", "0.0.0.0"),
+        help="Host o IP donde escuchar (por defecto 0.0.0.0 para permitir accesos en la red local)",
+    )
+    parser.add_argument(
+        "--port",
+        type=int,
+        default=int(os.environ.get("SIMULADOR_PORT", 8000)),
+        help="Puerto a usar (por defecto 8000)",
+    )
+    args = parser.parse_args()
+
+    run_server(host=args.host, port=args.port)
