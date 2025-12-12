@@ -22,7 +22,6 @@ const groupDetailSection = document.getElementById("group-detail");
 // Eliminatoria
 const bracketGrid = document.getElementById("bracket-grid");
 const thirdsGrid = document.getElementById("thirds-grid");
-const syncBtn = document.getElementById("sync");
 const bracketStatus = document.getElementById("bracket-status");
 
 let gruposDisponibles = [];
@@ -251,6 +250,7 @@ async function resetData() {
     if (currentGroup) {
       await loadGroup(currentGroup);
     }
+    await refreshBracket();
   } catch (err) {
     console.error(err);
     setStatus(err.message, "error");
@@ -479,6 +479,7 @@ async function save() {
       updateGroupCard(currentGroup, data.equipos);
     }
     groupStatus.textContent = "Actualizado";
+    await refreshBracket();
   } catch (err) {
     groupStatus.textContent = err.message;
   }
@@ -502,6 +503,7 @@ async function resetGroup() {
     if (!res.ok) throw new Error("No se pudo reiniciar el grupo");
     await loadGroup(currentGroup);
     groupStatus.textContent = "Grupo reiniciado";
+    await refreshBracket();
   } catch (err) {
     groupStatus.textContent = err.message;
   }
@@ -537,7 +539,7 @@ function matchCard(match, roundLabel) {
     wrap.className = "match-row";
     const chip = document.createElement("span");
     chip.className = "team-chip";
-    chip.textContent = team ? team.slice(0, 1).toUpperCase() : "";
+    chip.textContent = match[gKey === "goles1" ? "semilla1" : "semilla2"] || "";
 
     const name = document.createElement("span");
     name.className = "team-name";
@@ -628,6 +630,10 @@ async function loadBracket() {
   }
 }
 
+async function refreshBracket() {
+  await loadBracket();
+}
+
 async function saveMatch(matchId) {
   const card = bracketGrid.querySelector(`.match-node[data-id="${matchId}"]`);
   if (!card) return;
@@ -676,7 +682,6 @@ matchesContainer?.addEventListener("input", (event) => {
     triggerAutoSave();
   }
 });
-syncBtn?.addEventListener("click", () => loadBracket());
 bracketGrid?.addEventListener("input", (event) => {
   const card = event.target.closest(".match-node");
   if (!card) return;

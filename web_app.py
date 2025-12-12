@@ -479,7 +479,7 @@ def _buscar_combinacion(cadena: str, combinaciones: List[Dict[str, str]]) -> Dic
     raise ValueError(f"No se encontró combinación para la cadena {cadena!r}")
 
 
-def _equipo_por_posicion(tabla: Dict[str, List[Dict[str, object]]], grupo: str, pos: int) -> str:
+def _equipo_por_posicion(tabla: Dict[str, List[Dict[str, object]]], grupo: str, pos: int) -> Dict[str, str]:
     equipos = tabla.get(grupo.upper(), [])
     if pos <= 0 or pos > len(equipos):
         raise ValueError(f"No hay equipo en la posición {pos} del grupo {grupo}")
@@ -487,18 +487,18 @@ def _equipo_por_posicion(tabla: Dict[str, List[Dict[str, object]]], grupo: str, 
     nombre = equipo.get("pais", "")
     pj = int(equipo.get("pj", 0))
     # Solo mostramos al equipo si completó sus tres partidos de grupo
-    return nombre if pj >= 3 else ""
+    return {"nombre": nombre if pj >= 3 else "", "semilla": f"{grupo.upper()}{pos}"}
 
 
-def _equipo_tercero(tabla: Dict[str, List[Dict[str, object]]], clave: Optional[str]) -> str:
+def _equipo_tercero(tabla: Dict[str, List[Dict[str, object]]], clave: Optional[str]) -> Dict[str, str]:
     if not clave:
         raise ValueError("Valor de combinación inválido para tercero lugar")
     grupo = clave[-1]
     return _equipo_por_posicion(tabla, grupo, 3)
 
 
-def _construir_llaves(tabla: Dict[str, List[Dict[str, object]]], combinacion: Dict[str, str]) -> List[Tuple[int, str, str]]:
-    llaves: List[Tuple[int, str, str]] = []
+def _construir_llaves(tabla: Dict[str, List[Dict[str, object]]], combinacion: Dict[str, str]) -> List[Tuple[int, Dict[str, str], Dict[str, str]]]:
+    llaves: List[Tuple[int, Dict[str, str], Dict[str, str]]] = []
     llaves.append((1, _equipo_por_posicion(tabla, "E", 1), _equipo_tercero(tabla, combinacion.get("1E"))))
     llaves.append((2, _equipo_por_posicion(tabla, "I", 1), _equipo_tercero(tabla, combinacion.get("1I"))))
     llaves.append((3, _equipo_por_posicion(tabla, "A", 2), _equipo_por_posicion(tabla, "B", 2)))
@@ -518,13 +518,15 @@ def _construir_llaves(tabla: Dict[str, List[Dict[str, object]]], combinacion: Di
     return llaves
 
 
-def _guardar_llaves_csv(llaves: List[Tuple[int, str, str]]) -> None:
+def _guardar_llaves_csv(llaves: List[Tuple[int, Dict[str, str], Dict[str, str]]]) -> None:
     with open(LLAVES_CSV, "w", newline="", encoding="utf-8") as archivo:
         campos = ["llave", "Equipo1", "Equipo2"]
         escritor = csv.DictWriter(archivo, fieldnames=campos)
         escritor.writeheader()
         for llave, equipo1, equipo2 in llaves:
-            escritor.writerow({"llave": llave, "Equipo1": equipo1, "Equipo2": equipo2})
+            e1 = equipo1["nombre"] if isinstance(equipo1, dict) else equipo1
+            e2 = equipo2["nombre"] if isinstance(equipo2, dict) else equipo2
+            escritor.writerow({"llave": llave, "Equipo1": e1, "Equipo2": e2})
 
 
 def _llaves_base() -> List[Tuple[int, str, str]]:
@@ -596,12 +598,20 @@ PROGRESION = [
 ]
 
 
-def _match_template(match_id: int, equipo1: str = "", equipo2: str = "") -> Dict[str, object]:
+def _match_template(
+    match_id: int,
+    equipo1: str = "",
+    equipo2: str = "",
+    semilla1: str = "",
+    semilla2: str = "",
+) -> Dict[str, object]:
     return {
         "id": match_id,
         "round": _round_for_match(match_id),
         "equipo1": equipo1,
         "equipo2": equipo2,
+        "semilla1": semilla1,
+        "semilla2": semilla2,
         "goles1": None,
         "goles2": None,
         "pen1": None,
@@ -614,7 +624,7 @@ def _bracket_skeleton() -> Dict[int, Dict[str, object]]:
     llaves = _llaves_base()
     matches: Dict[int, Dict[str, object]] = {}
     for match_id, eq1, eq2 in llaves:
-        matches[match_id] = _match_template(match_id, eq1, eq2)
+        matches[match_id] = _match_template(match_id, eq1["nombre"], eq2["nombre"], eq1["semilla"], eq2["semilla"])
 
     for match_id in range(17, 33):
         if match_id not in matches:
@@ -691,8 +701,12 @@ def _merge_state(base: Dict[int, Dict[str, object]], saved: Dict[str, Dict[str, 
             if libres:
                 match["equipo1"] = data.get("equipo1", "")
                 match["equipo2"] = data.get("equipo2", "")
+                match["semilla1"] = data.get("semilla1", match.get("semilla1", ""))
+                match["semilla2"] = data.get("semilla2", match.get("semilla2", ""))
             for field in ("goles1", "goles2", "pen1", "pen2"):
                 match[field] = data.get(field)
+        match["semilla1"] = data.get("semilla1", match.get("semilla1", ""))
+        match["semilla2"] = data.get("semilla2", match.get("semilla2", ""))
     return merged
 
 
@@ -708,6 +722,8 @@ def _propagar(matches: Dict[int, Dict[str, object]]) -> None:
             actual = matches[dst].get(clave) or ""
             if ganador != actual:
                 matches[dst][clave] = ganador
+                semilla_clave = "semilla1" if slot == 1 else "semilla2"
+                matches[dst][semilla_clave] = matches[src].get("semilla1" if ganador == matches[src].get("equipo1") else "semilla2", "")
                 matches[dst]["goles1"] = None
                 matches[dst]["goles2"] = None
                 matches[dst]["pen1"] = None
@@ -725,8 +741,13 @@ def _propagar(matches: Dict[int, Dict[str, object]]) -> None:
         perdedor_der = _loser(matches.get(30, {}))
         for slot, nuevo in enumerate((perdedor_izq, perdedor_der), start=1):
             clave = "equipo1" if slot == 1 else "equipo2"
+            semilla_clave = "semilla1" if slot == 1 else "semilla2"
             if nuevo != tercer_partido.get(clave):
                 tercer_partido[clave] = nuevo or ""
+                tercer_partido[semilla_clave] = matches[29 + slot - 1].get(
+                    "semilla1" if nuevo == matches[29 + slot - 1].get("equipo1") else "semilla2",
+                    "",
+                )
                 tercer_partido["goles1"] = None
                 tercer_partido["goles2"] = None
                 tercer_partido["pen1"] = None
@@ -788,6 +809,8 @@ def _serialize_match(match: Dict[str, object]) -> Dict[str, object]:
         "round": ROUND_NAMES.get(match["round"], match["round"]),
         "equipo1": match.get("equipo1", ""),
         "equipo2": match.get("equipo2", ""),
+        "semilla1": match.get("semilla1", ""),
+        "semilla2": match.get("semilla2", ""),
         "goles1": match.get("goles1"),
         "goles2": match.get("goles2"),
         "pen1": match.get("pen1"),
