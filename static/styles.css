@@ -655,3 +655,76 @@ footer {
   color: var(--muted);
   padding: 28px 16px;
 }
+
+/* Tabs y paneles dinámicos */
+.phase-tabs {
+  display: inline-flex;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.04);
+  padding: 4px;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+}
+
+.tab {
+  background: transparent;
+  color: var(--text);
+  border: 1px solid transparent;
+  border-radius: 12px;
+  padding: 8px 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.tab.active,
+.tab:focus-visible {
+  background: linear-gradient(135deg, rgba(95, 230, 201, 0.12), rgba(111, 163, 255, 0.12));
+  border-color: var(--border);
+  color: var(--accent);
+  outline: none;
+}
+
+.group-tab-row {
+  margin-top: 10px;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.group-tab-row .tab {
+  padding: 8px 10px;
+  min-width: 38px;
+  text-transform: uppercase;
+  font-variant-numeric: tabular-nums;
+}
+
+.group-tab-row.hidden {
+  display: none;
+}
+
+.grouped-card {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 14px;
+}
+
+.group-detail-header {
+  align-items: center;
+  gap: 10px;
+}
+
+.hidden {
+  display: none !important;
+}
+
+[data-phase-panel] {
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+[data-phase-panel].hidden {
+  opacity: 0;
+  transform: translateY(10px);
+}
