@@ -14,7 +14,6 @@ const detailPrevBtn = document.getElementById("detail-prev");
 const detailNextBtn = document.getElementById("detail-next");
 const resetGroupBtn = document.getElementById("reset-group");
 const tablaContainer = document.getElementById("tabla-container");
-const journeyNav = document.getElementById("journey-nav");
 const matchesContainer = document.getElementById("matches-container");
 const groupStatus = document.getElementById("group-status");
 const groupDetailSection = document.getElementById("group-detail");
@@ -339,29 +338,12 @@ function renderTabla(equipos) {
   tablaContainer.appendChild(table);
 }
 
-function renderJourneyNav(jornadas) {
-  if (!journeyNav) return;
-  journeyNav.innerHTML = "";
-  jornadas.forEach((jornada) => {
-    const btn = document.createElement("button");
-    btn.type = "button";
-    btn.className = "pill muted";
-    btn.textContent = `J${jornada.jornada}`;
-    btn.addEventListener("click", () => {
-      const anchor = document.getElementById(`jornada-${jornada.jornada}`);
-      anchor?.scrollIntoView({ behavior: "smooth", block: "start" });
-    });
-    journeyNav.appendChild(btn);
-  });
-}
-
 function renderMatches(jornadas) {
   matchesContainer.innerHTML = "";
   if (!jornadas?.length) {
     matchesContainer.innerHTML = "<p class='subtitle'>Selecciona un grupo para editar sus partidos.</p>";
     return;
   }
-  renderJourneyNav(jornadas);
 
   jornadas.forEach((jornada) => {
     const titulo = document.createElement("h3");

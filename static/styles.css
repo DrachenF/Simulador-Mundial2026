@@ -666,6 +666,18 @@ footer {
   border: 1px solid var(--border);
 }
 
+.top-phase-nav {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 10px;
+}
+
+.phase-tabs.compact {
+  width: 100%;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+
 .tab {
   background: transparent;
   color: var(--text);
@@ -733,4 +745,58 @@ footer {
 [data-phase-panel].hidden {
   opacity: 0;
   transform: translateY(10px);
+}
+
+@media (max-width: 900px) {
+  .phase-tabs {
+    width: 100%;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .tab {
+    flex: 1 1 auto;
+    min-width: 120px;
+    text-align: center;
+  }
+
+  .match-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    row-gap: 8px;
+  }
+
+  .match-row input {
+    font-size: 1rem;
+  }
+
+  .match-row .team {
+    word-break: break-word;
+    text-align: left;
+  }
+}
+
+@media (max-width: 600px) {
+  .group-tab-row {
+    justify-content: center;
+  }
+
+  .grouped-card,
+  .matches-card,
+  .summary-card {
+    padding: 12px;
+  }
+
+  .match-row {
+    grid-template-columns: 1fr;
+    text-align: left;
+  }
+
+  .match-row span.team {
+    text-align: left;
+  }
+
+  .match-row input {
+    max-width: 120px;
+    justify-self: flex-start;
+  }
 }
