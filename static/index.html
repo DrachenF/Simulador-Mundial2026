@@ -519,366 +519,245 @@ svg.lines{
     </section>
   </div>
 
-  
-<script>
-    // ====== Elementos comunes ======
+  <script>
     const tabGroups = document.getElementById("tab-groups");
     const tabTables = document.getElementById("tab-tables");
     const tabKO = document.getElementById("tab-ko");
-
     const panelGroups = document.getElementById("panel-groups");
     const panelTables = document.getElementById("panel-tables");
     const panelKO = document.getElementById("panel-ko");
-
     const statusPill = document.getElementById("statusPill");
     const groupBar = document.querySelector(".groupbar");
     const groupHeading = document.getElementById("groupHeading");
     const groupBody = document.getElementById("groupBody");
     const groupContent = document.getElementById("groupContent");
-
     const allTablesGrid = document.getElementById("allTablesGrid");
     const bestThirdsBody = document.getElementById("bestThirdsBody");
 
-    // ====== Estado ======
     const defaultGroups = {
       A: ["México", "Sudáfrica", "República de Corea", "Dinamarca"],
       B: ["Canadá", "Italia", "Qatar", "Suiza"],
       C: ["Brasil", "Marruecos", "Haití", "Japón"],
-      D: ["Argentina", "Estados Unidos", "Ghana", "Países Bajos"],
-      E: ["España", "Croacia", "Australia", "Irán"],
-      F: ["Francia", "Senegal", "Uruguay", "Suecia"],
-      G: ["Alemania", "Colombia", "Egipto", "Polonia"],
-      H: ["Portugal", "Nigeria", "Serbia", "Chile"],
-      I: ["Inglaterra", "Camerún", "Ecuador", "Noruega"],
-      J: ["Bélgica", "Perú", "Túnez", "Costa Rica"],
-      K: ["Italia (2)", "Corea del Sur (2)", "México (2)", "Marruecos (2)"],
-      L: ["Brasil (2)", "Argentina (2)", "España (2)", "Francia (2)"],
+      D: ["Estados Unidos", "Paraguay", "Australia", "Turquía"],
+      E: ["Alemania", "Curazao", "Costa de Marfil", "Ecuador"],
+      F: ["Países Bajos", "Japón", "Polonia", "Túnez"],
+      G: ["Bélgica", "Egipto", "Irán", "Nueva Zelanda"],
+      H: ["España", "Cabo Verde", "Arabia Saudita", "Uruguay"],
+      I: ["Francia", "Senegal", "Bolivia", "Noruega"],
+      J: ["Argentina", "Argelia", "Austria", "Jordania"],
+      K: ["Portugal", "Jamaica", "Uzbekistán", "Colombia"],
+      L: ["Inglaterra", "Croacia", "Ghana", "Panamá"],
     };
 
-    const state = {
-      stage: "groups",
-      group: null,
-      baseStats: {},
-      matches: {},
-      order: [],
-    };
+    const state = { stage: "groups", order: [], group: null, baseStats: {}, matches: {} };
 
-    // ====== Utilidades ======
-    const emptyRow = (team) => ({
-      team,
-      pj: 0,
-      w: 0,
-      d: 0,
-      l: 0,
-      gf: 0,
-      gc: 0,
-      dg: 0,
-      pts: 0,
-    });
-
-    const clampScore = (val) => {
-      if (val === "" || val === null || val === undefined) return null;
-      const n = Number(val);
+    const emptyRow = (team) => ({ team, pj: 0, w: 0, d: 0, l: 0, gf: 0, gc: 0, DG: 0, pts: 0 });
+    const clampScore = (v) => {
+      if (v === "" || v === null || v === undefined) return null;
+      const n = Number(v);
       return Number.isFinite(n) && n >= 0 ? n : null;
     };
+    const escapeHtml = (s) => s.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
 
-    function escapeHtml(str) {
-      return String(str)
-        .replaceAll("&", "&amp;")
-        .replaceAll("<", "&lt;")
-        .replaceAll(">", "&gt;")
-        .replaceAll('"', "&quot;")
-        .replaceAll("'", "&#039;");
-    }
-
-    function sortStandings(rows) {
-      return [...rows]
-        .map((r) => ({
-          ...r,
-          gf: r.GF ?? r.gf ?? 0,
-          gc: r.GC ?? r.gc ?? 0,
-          dg: r.dg ?? r.DG ?? (r.GF ?? r.gf ?? 0) - (r.GC ?? r.gc ?? 0),
-          pts: r.pts ?? (r.w || 0) * 3 + (r.d || 0),
-        }))
-        .sort((a, b) => {
-          if (b.pts !== a.pts) return b.pts - a.pts;
-          if (b.dg !== a.dg) return b.dg - a.dg;
-          if (b.gf !== a.gf) return b.gf - a.gf;
-          return a.team.localeCompare(b.team, "es");
-        })
-        .map((r) => ({ ...r, DG: r.dg }));
-    }
-
-    // ====== Carga inicial desde CSV ======
-    async function fetchCsvText() {
-      const candidatos = ["/grupos.csv", "/ResultadoGrupos.csv", "../grupos.csv", "grupos.csv"];
-      for (const url of candidatos) {
+    async function fetchCsv() {
+      const opciones = ["/grupos.csv", "grupos.csv", "../grupos.csv", "/ResultadoGrupos.csv"]; 
+      for (const url of opciones) {
         try {
           const res = await fetch(url);
           if (!res.ok) continue;
           return await res.text();
-        } catch (_) {
-          // sigue con el siguiente
-        }
+        } catch (_) { continue; }
       }
       return null;
     }
 
-    function parseCsvIntoState(texto) {
+    function parseCsv(texto) {
       const lineas = texto.trim().split(/\r?\n/);
-      lineas.shift(); // encabezado
-
+      lineas.shift();
       const grupos = {};
       lineas.forEach((linea) => {
         if (!linea.trim()) return;
         const cols = linea.split(",");
         if (cols.length < 10) return;
-        const [grupo, pais, pj, w, d, l, GF, GC, DG, pts] = cols;
-        const g = (grupo || "").trim().toUpperCase();
-        if (!g) return;
-        grupos[g] = grupos[g] || [];
-        grupos[g].push({
-          team: pais.trim(),
-          pj: Number(pj) || 0,
-          w: Number(w) || 0,
-          d: Number(d) || 0,
-          l: Number(l) || 0,
-          gf: Number(GF) || 0,
-          gc: Number(GC) || 0,
-          dg: Number(DG) || 0,
-          pts: Number(pts) || 0,
-        });
+        const [g, pais, pj, w, d, l, GF, GC, DG, pts] = cols;
+        const grupo = g.trim().toUpperCase();
+        grupos[grupo] = grupos[grupo] || [];
+        grupos[grupo].push({ team: pais.trim(), pj: +pj || 0, w: +w || 0, d: +d || 0, l: +l || 0, gf: +GF || 0, gc: +GC || 0, DG: +DG || 0, pts: +pts || 0 });
       });
-
-      state.order = Object.keys(grupos).sort();
-      state.baseStats = {};
-      state.order.forEach((g) => {
-        state.baseStats[g] = grupos[g];
-      });
-    }
-
-    function ensureStateHasGroups() {
-      if (state.order && state.order.length) return;
-      loadDefaults();
+      return grupos;
     }
 
     function loadDefaults() {
       state.baseStats = {};
-      state.order.forEach((g) => {
-        const teams = (state.baseStats[g] || []).map((t) => t.team);
-        state.matches[g] = buildCalendar(teams).map((j) => ({
-          jornada: j.jornada,
-          partidos: j.partidos.map((p) => ({ ...p, goles1: null, goles2: null })),
-        { jornada: 1, partidos: [{ equipo1: t1, equipo2: t2 }, { equipo1: t3, equipo2: t4 }] },
-        { jornada: 2, partidos: [{ equipo1: t1, equipo2: t3 }, { equipo1: t2, equipo2: t4 }] },
-        { jornada: 3, partidos: [{ equipo1: t1, equipo2: t4 }, { equipo1: t2, equipo2: t3 }] },
-      const completos = matches
-        .flatMap((j) => j.partidos || [])
-        .filter((p) => p.goles1 !== null && p.goles2 !== null);
-      const tabla = new Map(base.map((t) => [t.team, emptyRow(t.team)]));
-        const g1 = Number(p.goles1);
-        const g2 = Number(p.goles2);
-        Array.from(tabla.values()).map((t) => ({ ...t, DG: t.gf - t.gc, pts: t.w * 3 + t.d }))
-      if (s === "tables") statusPill.textContent = "Fase: Tablas · A–L";
-      if (s === "ko") statusPill.textContent = "Fase: Eliminatoria";
-          ],
-        },
-      ];
-    }
-
-    // ====== Cálculo de tabla ======
-    function computeStandings(groupId) {
-      const base = state.baseStats[groupId] || [];
-      const matches = state.matches[groupId] || [];
-      const flat = matches.flatMap((j) => j.partidos || []);
-      const completos = flat.filter((p) => p.goles1 !== null && p.goles2 !== null);
-
-      if (!completos.length) return sortStandings(base);
-
-      const equipos = base.map((t) => t.team);
-      const tabla = new Map(equipos.map((team) => [team, emptyRow(team)]));
-
-      completos.forEach((p) => {
-        const g1 = Number(p.goles1);
-        const g2 = Number(p.goles2);
-        if (Number.isNaN(g1) || Number.isNaN(g2)) return;
-        const e1 = tabla.get(p.equipo1);
-        const e2 = tabla.get(p.equipo2);
-        if (!e1 || !e2) return;
-        e1.pj += 1;
-        e2.pj += 1;
-        e1.gf += g1;
-        e1.gc += g2;
-        e2.gf += g2;
-        e2.gc += g1;
-        if (g1 > g2) {
-          e1.w += 1;
-          e2.l += 1;
-        } else if (g2 > g1) {
-          e2.w += 1;
-          e1.l += 1;
-        } else {
-          e1.d += 1;
-          e2.d += 1;
-        }
+      state.order.forEach((g) => (state.baseStats[g] = defaultGroups[g].map((t) => emptyRow(t))));
+        const [t1, t2, t3, t4] = teams;
+        state.matches[g] = [
+          { jornada: 1, partidos: [{ equipo1: t1, equipo2: t2 }, { equipo1: t3, equipo2: t4 }] },
+          { jornada: 2, partidos: [{ equipo1: t1, equipo2: t3 }, { equipo1: t2, equipo2: t4 }] },
+          { jornada: 3, partidos: [{ equipo1: t1, equipo2: t4 }, { equipo1: t2, equipo2: t3 }] },
+        ].map((j) => ({ ...j, partidos: j.partidos.map((p) => ({ ...p, goles1: null, goles2: null })) }));
+    function sortStandings(rows) {
+      return [...rows].sort((a, b) => {
+        if (b.pts !== a.pts) return b.pts - a.pts;
+        if (b.DG !== a.DG) return b.DG - a.DG;
+        if (b.gf !== a.gf) return b.gf - a.gf;
+        return a.team.localeCompare(b.team, "es");
       });
+      const completos = matches.flatMap((j) => j.partidos).filter((p) => p.goles1 !== null && p.goles2 !== null);
+      const tabla = new Map(base.map((t) => [t.team, { ...emptyRow(t.team) }]));
+        e1.pj += 1; e2.pj += 1;
+        e1.gf += g1; e1.gc += g2;
+        e2.gf += g2; e2.gc += g1;
+        if (g1 > g2) { e1.w++; e2.l++; } else if (g2 > g1) { e2.w++; e1.l++; } else { e1.d++; e2.d++; }
+      const lista = [...tabla.values()].map((t) => ({ ...t, DG: t.gf - t.gc, pts: t.w * 3 + t.d }));
+      return sortStandings(lista);
+      state.order.forEach((g) => (mapa[g] = computeStandings(g)));
+        const btn = document.createElement("button");
+        btn.className = "gbtn";
+        btn.type = "button";
+        btn.textContent = g;
+        btn.setAttribute("role", "tab");
+        btn.setAttribute("aria-selected", String(state.group === g));
+        btn.addEventListener("click", () => { state.group = g; renderAll(); });
+        groupBar.appendChild(btn);
 
-      return sortStandings(
-        Array.from(tabla.values()).map((t) => ({
-          ...t,
-          DG: t.gf - t.gc,
-          pts: t.w * 3 + t.d,
-        }))
-      );
+      const html = jornadas
+        .map((j, jIdx) => {
+          const rows = j.partidos
+            .map((p, pIdx) => {
+                <div class="fixtureRow" data-group="${state.group}" data-jornada="${jIdx}" data-match="${pIdx}">
+                    <input class="box" type="number" min="0" data-field="g1" value="${g1}" />
+                    <input class="box" type="number" min="0" data-field="g2" value="${g2}" />
+          return `<div class="mdTitle">Jornada ${j.jornada}</div><div class="fixtures">${rows}</div>`;
+      groupContent.innerHTML = html;
     }
-
-    function standingsByGroup() {
-      const mapa = {};
-      state.order.forEach((g) => {
-        mapa[g] = computeStandings(g);
-      });
-      return mapa;
-    }
-
-    // ====== Render por panel ======
-    function renderStage() {
-      const s = state.stage;
-      tabGroups.setAttribute("aria-selected", String(s === "groups"));
-      tabTables.setAttribute("aria-selected", String(s === "tables"));
-      tabKO.setAttribute("aria-selected", String(s === "ko"));
-
-      panelGroups.hidden = s !== "groups";
-      panelTables.hidden = s !== "tables";
-      panelKO.hidden = s !== "ko";
-
-      if (s === "groups") statusPill.textContent = `Fase: Grupos · Grupo ${state.group}`;
-      if (s === "tables") statusPill.textContent = `Fase: Tablas · A–L`;
-      if (s === "ko") statusPill.textContent = `Fase: Eliminatoria`;
-    }
-
-    function renderGroupBar() {
-      groupBar.innerHTML = "";
-      state.order.forEach((g) => {
-        const b = document.createElement("button");
-        b.className = "gbtn";
-        b.type = "button";
-        b.textContent = g;
-        b.setAttribute("role", "tab");
-        b.setAttribute("aria-selected", String(state.group === g));
-        b.addEventListener("click", () => {
-          state.group = g;
-          renderAll();
-        });
-        groupBar.appendChild(b);
-      });
-    }
-
     function renderGroupTable() {
-      if (!state.group) return;
       const rows = computeStandings(state.group);
       groupHeading.textContent = `Grupo ${state.group}`;
-
       groupBody.innerHTML = rows
-        .map(
-          (r) => `
-        <tr>
-          <td class="team">${escapeHtml(r.team)}</td>
-          <td class="num">${r.pj}</td>
-          <td class="num">${r.w}</td>
-          <td class="num">${r.d}</td>
-          <td class="num">${r.l}</td>
-          <td class="num">${r.gf}</td>
-          <td class="num">${r.gc}</td>
-          <td class="num">${r.DG ?? r.dg}</td>
-          <td class="num">${r.pts}</td>
-        </tr>`
-        )
+        .map((r) => `
+          <tr>
+            <td class="team">${escapeHtml(r.team)}</td>
+            <td class="num">${r.pj}</td>
+            <td class="num">${r.w}</td>
+            <td class="num">${r.d}</td>
+            <td class="num">${r.l}</td>
+            <td class="num">${r.gf}</td>
+            <td class="num">${r.gc}</td>
+            <td class="num">${r.DG}</td>
+            <td class="num">${r.pts}</td>
+          </tr>`)
         .join("");
-
       renderGroupFixtures();
+                <thead><tr><th>País</th><th class="num">PJ</th><th class="num">G</th><th class="num">E</th><th class="num">P</th><th class="num">GF</th><th class="num">GC</th><th class="num">DG</th><th class="num">PTS</th></tr></thead>
+                <tbody>${rows.map((r) => `
+                  <tr><td class="team">${escapeHtml(r.team)}</td><td class="num">${r.pj}</td><td class="num">${r.w}</td><td class="num">${r.d}</td><td class="num">${r.l}</td><td class="num">${r.gf}</td><td class="num">${r.gc}</td><td class="num">${r.DG}</td><td class="num">${r.pts}</td></tr>
+                `).join("")}</tbody>
+          </div>`;
+          const rows = mapa[g] || [];
+          const t = rows[2];
+          return t ? { ...t, group: g } : null;
+      bestThirdsBody.innerHTML = thirds.slice(0, 8).map((r, idx) => `
+          <td class="num">${r.DG}</td>
+        </tr>
+      `).join("");
     }
 
-    function renderGroupFixtures() {
-      if (!state.group) return;
-      const jornadas = state.matches[state.group] || [];
-      if (!jornadas.length) {
-        groupContent.innerHTML = "<p class='subtitle'>No hay calendario para este grupo.</p>";
-        return;
-      }
+    function renderKO() {
+      const koLeftSide = document.getElementById("koLeftSide");
+      const koRightSide = document.getElementById("koRightSide");
+      const koCenter = document.getElementById("koCenter");
+      const koLines = document.getElementById("koLines");
 
-      const bloques = jornadas
-        .map((jornada, jIndex) => {
-          const filas = jornada.partidos
-            .map((p, pIndex) => {
-              const g1 = p.goles1 ?? "";
-              const g2 = p.goles2 ?? "";
-              return `
-                <div class="fixtureRow" data-group="${state.group}" data-jornada="${jIndex}" data-match="${pIndex}">
-                  <div class="teamName">${escapeHtml(p.equipo1)}</div>
-                  <div class="score">
-                    <input class="box" type="number" inputmode="numeric" min="0" data-field="g1" value="${g1}" aria-label="Goles de ${escapeHtml(p.equipo1)}" />
-                    <span class="dash">–</span>
-                    <input class="box" type="number" inputmode="numeric" min="0" data-field="g2" value="${g2}" aria-label="Goles de ${escapeHtml(p.equipo2)}" />
-                  </div>
-                  <div class="teamName right">${escapeHtml(p.equipo2)}</div>
-                </div>`;
-            })
-            .join("");
-          return `
-            <div class="mdTitle">Jornada ${jornada.jornada}</div>
-            <div class="fixtures">${filas}</div>
-          `;
-        })
-        .join('<div style="height:12px"></div>');
+      const teamsLeft = ["HAITÍ","FRANCIA","A. SAUDITA","SUDÁFRICA","UEFA 1","P. BAJOS","MARRUECOS","FIFA 1","CROACIA","ESPAÑA","ARGELIA","E. UNIDOS","FIFA 2","BRASIL","URUGUAY","COLOMBIA"];
+      const teamsRight = ["JAPÓN","CURAZAO","SENEGAL","MÉXICO","C. DE MARFIL","INGLATERRA","UZBEKISTÁN","ARGENTINA","C. VERDE","AUSTRALIA","EGIPTO","CANADÁ","AUSTRIA","ITALIA","ALEMANIA","PORTUGAL"];
 
-      groupContent.innerHTML = bloques;
+      const el = (t, a={}, c=[]) => {
+        const n = document.createElement(t);
+        Object.entries(a).forEach(([k,v])=>{ if(k==='class') n.className=v; else if(k==='text') n.textContent=v; else n.setAttribute(k,v);});
+        c.forEach((h)=>n.appendChild(h));
+        return n;
+      };
+      const matchNode = ({id,teamA="—",teamB="—",next=""}) => {
+        const m = el("div",{class:"match","data-id":id,"data-next":next});
+        m.appendChild(el("div",{class:"mteam",title:teamA},[document.createTextNode(teamA), el("span",{class:"pick"})]));
+        m.appendChild(el("div",{class:"mteam",title:teamB},[document.createTextNode(teamB), el("span",{class:"pick"})]));
+        return m;
+      };
+      const roundNode = (t) => { const r=el("div",{class:"round"}); r.appendChild(el("div",{class:"rt",text:t})); return r; };
+      const place = (round, match, top)=>{ match.style.top=`${top}px`; round.appendChild(match); };
+      const svgLine=(svg,x1,y1,x2,y2)=>{ const p=document.createElementNS("http://www.w3.org/2000/svg","path"); const mid=(x1+x2)/2; p.setAttribute("d",`M ${x1} ${y1} L ${mid} ${y1} L ${mid} ${y2} L ${x2} ${y2}`); p.setAttribute("fill","none"); p.setAttribute("stroke","rgba(255,255,255,.25)"); p.setAttribute("stroke-width","2"); p.setAttribute("stroke-linecap","round"); svg.appendChild(p); };
+
+      koLeftSide.innerHTML = koRightSide.innerHTML = koCenter.innerHTML = koLines.innerHTML = "";
+
+      const L16=roundNode("16VOS"),L8=roundNode("8VOS"),L4=roundNode("4TOS"),LS=roundNode("SEMI");
+      const R16=roundNode("16VOS"),R8=roundNode("8VOS"),R4=roundNode("4TOS"),RS=roundNode("SEMI");
+      const MH=parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--koMatchH"))||64;
+      const G=parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--koGap"))||18;
+      const top0=14, step16=MH+G;
+      for(let i=0;i<8;i++){ const a=teamsLeft[i*2]??"—"; const b=teamsLeft[i*2+1]??"—"; const m=matchNode({id:`L16_${i+1}`}); m.querySelectorAll(".mteam")[0].childNodes[0].nodeValue=a; m.querySelectorAll(".mteam")[1].childNodes[0].nodeValue=b; place(L16,m,top0+i*step16);} 
+      for(let i=0;i<8;i++){ const a=teamsRight[i*2]??"—"; const b=teamsRight[i*2+1]??"—"; const m=matchNode({id:`R16_${i+1}`}); m.querySelectorAll(".mteam")[0].childNodes[0].nodeValue=a; m.querySelectorAll(".mteam")[1].childNodes[0].nodeValue=b; place(R16,m,top0+i*step16);} 
+      const step8=step16*2, off8=top0+MH/2+G/2-MH/2;
+      for(let i=0;i<4;i++){ place(L8,matchNode({id:`L8_${i+1}`}),off8+i*step8); place(R8,matchNode({id:`R8_${i+1}`}),off8+i*step8); }
+      const step4=step8*2, off4=off8+MH/2+G/2;
+      for(let i=0;i<2;i++){ place(L4,matchNode({id:`L4_${i+1}`}),off4+i*step4); place(R4,matchNode({id:`R4_${i+1}`}),off4+i*step4); }
+      const offS=off4+MH/2+G/2; place(LS,matchNode({id:"LS_1"}),offS); place(RS,matchNode({id:"RS_1"}),offS);
+      koLeftSide.append(L16,L8,L4,LS); koRightSide.append(R16,R8,R4,RS);
+      const center=el("div",{class:"block"});
+      const rtF=el("div",{class:"rt",text:"FINAL"}); rtF.style.top="0px"; center.appendChild(rtF);
+      const rt3=el("div",{class:"rt",text:"TERCER LUGAR"}); rt3.style.top="250px"; center.appendChild(rt3);
+      const final=matchNode({id:"F",teamA:"—",teamB:"—"}); final.style.width="260px"; final.style.left="0px"; final.style.top="34px"; center.appendChild(final);
+      const third=matchNode({id:"T3",teamA:"—",teamB:"—"}); third.style.width="260px"; third.style.left="0px"; third.style.top="284px"; center.appendChild(third);
+      koCenter.appendChild(center);
+
+      requestAnimationFrame(()=>{
+        const bracket=document.getElementById("koBracket");
+        const rect=bracket.getBoundingClientRect();
+        koLines.setAttribute("viewBox",`0 0 ${rect.width} ${rect.height}`);
+        koLines.setAttribute("width",rect.width); koLines.setAttribute("height",rect.height);
+        const byId={}; bracket.querySelectorAll(".match").forEach((n)=>byId[n.dataset.id]=n);
+        const midR=(el)=>{const r=el.getBoundingClientRect(),b=bracket.getBoundingClientRect();return{ x:r.right-b.left,y:r.top-b.top+r.height/2 }};
+        const midL=(el)=>{const r=el.getBoundingClientRect(),b=bracket.getBoundingClientRect();return{ x:r.left-b.left,y:r.top-b.top+r.height/2 }};
+        for(let i=0;i<8;i++){const f=byId[`L16_${i+1}`],t=byId[`L8_${Math.floor(i/2)+1}`]; if(f&&t){const a=midR(f),b=midL(t); svgLine(koLines,a.x,a.y,b.x,b.y);} }
+        for(let i=0;i<4;i++){const f=byId[`L8_${i+1}`],t=byId[`L4_${Math.floor(i/2)+1}`]; if(f&&t){const a=midR(f),b=midL(t); svgLine(koLines,a.x,a.y,b.x,b.y);} }
+        for(let i=0;i<2;i++){const f=byId[`L4_${i+1}`],t=byId["LS_1"]; if(f&&t){const a=midR(f),b=midL(t); svgLine(koLines,a.x,a.y,b.x,b.y);} }
+        for(let i=0;i<8;i++){const f=byId[`R16_${i+1}`],t=byId[`R8_${Math.floor(i/2)+1}`]; if(f&&t){const a=midL(f),b=midR(t); svgLine(koLines,a.x,a.y,b.x,b.y);} }
+        for(let i=0;i<4;i++){const f=byId[`R8_${i+1}`],t=byId[`R4_${Math.floor(i/2)+1}`]; if(f&&t){const a=midL(f),b=midR(t); svgLine(koLines,a.x,a.y,b.x,b.y);} }
+        for(let i=0;i<2;i++){const f=byId[`R4_${i+1}`],t=byId["RS_1"]; if(f&&t){const a=midL(f),b=midR(t); svgLine(koLines,a.x,a.y,b.x,b.y);} }
+        const finalM=byId["F"], ls=byId["LS_1"], rs=byId["RS_1"];
+        if(finalM&&ls){const a=midR(ls),b=midL(finalM); svgLine(koLines,a.x,a.y,b.x,b.y);} if(finalM&&rs){const a=midL(rs),b=midR(finalM); svgLine(koLines,a.x,a.y,b.x,b.y);} 
+      });
+    function renderAll(){
+      if(state.stage==='groups') renderGroupTable();
+      if(state.stage==='tables') renderAllTables();
+      if(state.stage==='ko') renderKO();
     }
 
-    function renderAllTables() {
-      if (!allTablesGrid || !bestThirdsBody) return;
-      allTablesGrid.innerHTML = "";
-      const mapa = standingsByGroup();
-      state.order.forEach((g) => {
-        const rows = mapa[g] || [];
-        const card = document.createElement("div");
-        card.className = "card mini";
-        card.innerHTML = `
-          <div class="titleRow">
-            <h3 class="sectionTitle">Grupo ${g}</h3>
-            <p class="subtitle">Tabla completa</p>
-          </div>
-
-          <div class="tableWrap">
-            <div class="scrollX">
-              <table>
-                <thead>
-                  <tr>
-                    <th>País</th>
-                    <th class="num">PJ</th>
-                    <th class="num">G</th>
-                    <th class="num">E</th>
-                    <th class="num">P</th>
-                    <th class="num">GF</th>
-                    <th class="num">GC</th>
-                    <th class="num">DG</th>
-                    <th class="num">PTS</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  ${rows
-                    .map(
-                      (r) => `
-                        <tr>
-                          <td class="team">${escapeHtml(r.team)}</td>
-                          <td class="num">${r.pj}</td>
-                          <td class="num">${r.w}</td>
-                          <td class="num">${r.d}</td>
-                          <td class="num">${r.l}</td>
-                          <td class="num">${r.gf}</td>
-                          <td class="num">${r.gc}</td>
-                          <td class="num">${r.DG ?? r.dg}</td>
-                          <td class="num">${r.pts}</td>
-                        </tr>`
+    tabGroups.addEventListener("click",()=>{state.stage="groups";renderAll();});
+    tabTables.addEventListener("click",()=>{state.stage="tables";renderAll();});
+    tabKO.addEventListener("click",()=>{state.stage="ko";renderAll();});
+    groupContent.addEventListener("input",(e)=>{
+      const input=e.target; if(!input.matches("input[type='number']")) return;
+      const row=input.closest(".fixtureRow"); if(!row) return;
+      const g=row.dataset.group; const j=Number(row.dataset.jornada); const m=Number(row.dataset.match);
+      const match=state.matches[g]?.[j]?.partidos?.[m]; if(!match) return;
+      const field=input.dataset.field==='g2'? 'goles2':'goles1';
+      match[field]=clampScore(input.value);
+      if(match.goles1!==null && match.goles2!==null){
+        if(g===state.group) renderGroupTable();
+    (async function init(){
+      try{
+        const texto=await fetchCsv();
+        if(texto){
+          const grupos=parseCsv(texto);
+          const orden=Object.keys(grupos).sort();
+          if(orden.length){
+            state.order=orden;
+            state.baseStats={};
+            orden.forEach((g)=>state.baseStats[g]=grupos[g]);
+          }else{ loadDefaults(); }
+        }else{ loadDefaults(); }
+      }catch(err){ console.error(err); loadDefaults(); }
                     )
                     .join("")}
                 </tbody>
