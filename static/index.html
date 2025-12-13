@@ -78,14 +78,13 @@
         <section class="card elim-header">
           <div class="card-header">
             <div>
-              <p class="pill muted" id="bracket-status">Listo</p>
+              <p class="pill muted" id="status">Listo</p>
               <h3 style="margin: 6px 0 4px;">Llaves de eliminatoria</h3>
               <p class="muted">Sincroniza los cruces sin salir de la página.</p>
             </div>
 
             <div class="cta-row" style="margin-top:0;">
-              <!-- Si ya tienes botón en JS, ponlo aquí. Si no, puedes borrar esto. -->
-              <!-- <button class="button" id="sync-bracket">Actualizar llaves</button> -->
+              <button class="button" id="sync">Actualizar llaves</button>
             </div>
           </div>
         </section>
@@ -103,12 +102,7 @@
 
           <section class="card bracket-card">
             <div class="bracket-shell" id="bracket-viewport">
-              <div class="bracket-grid" id="bracket-grid">
-                <svg class="bracket-lines" id="bracket-lines" aria-hidden="true"></svg>
-                <div class="side" id="left-side"></div>
-                <div class="center" id="center-block"></div>
-                <div class="side mirror" id="right-side"></div>
-              </div>
+              <div class="bracket-grid" id="bracket-grid"></div>
             </div>
           </section>
         </div>

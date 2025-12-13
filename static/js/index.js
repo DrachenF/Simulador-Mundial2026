@@ -21,7 +21,8 @@ const groupDetailSection = document.getElementById("group-detail");
 // Eliminatoria
 const bracketGrid = document.getElementById("bracket-grid");
 const thirdsGrid = document.getElementById("thirds-grid");
-const bracketStatus = document.getElementById("bracket-status");
+const bracketStatus = document.getElementById("bracket-status") || document.getElementById("status");
+const bracketSyncBtn = document.getElementById("sync") || document.getElementById("sync-bracket");
 
 let gruposDisponibles = [];
 let currentGroup = null;
@@ -740,20 +741,29 @@ function drawConnectors() {
   });
 }
 
-function fitBracketToWidth() {
+function fitBracketToViewport() {
   const viewport = document.getElementById("bracket-viewport");
   const bracket = document.getElementById("bracket-grid");
   if (!viewport || !bracket) return;
 
-  bracket.style.transform = "scale(1)";
+  bracket.style.setProperty("--bracket-scale", "1");
+  bracket.style.setProperty("--bracket-shift", "0px");
   drawConnectors();
 
-  const available = viewport.clientWidth;
-  const needed = bracket.scrollWidth;
-  const scale = Math.min(1, available / needed || 1);
+  const viewportRect = viewport.getBoundingClientRect();
+  const availableWidth = viewport.clientWidth;
+  const availableHeight = Math.max(
+    240,
+    window.innerHeight - viewportRect.top - 12,
+  );
+  const neededWidth = bracket.scrollWidth;
+  const neededHeight = bracket.scrollHeight;
+  const scale = Math.min(1, availableWidth / neededWidth, availableHeight / neededHeight);
+  const shift = Math.max(0, (availableWidth - neededWidth * scale) / 2);
 
-  bracket.style.transform = `scale(${scale})`;
-  viewport.style.height = `${bracket.scrollHeight * scale}px`;
+  bracket.style.setProperty("--bracket-scale", scale);
+  bracket.style.setProperty("--bracket-shift", `${shift}px`);
+  viewport.style.height = `${neededHeight * scale}px`;
 }
 
 function renderThirds(list) {
@@ -811,7 +821,7 @@ function renderBracket(bracket) {
     layoutSide(leftSide);
     layoutSide(rightSide);
     placeCenterMatches();
-    fitBracketToWidth();
+    fitBracketToViewport();
   }
 }
 
@@ -824,7 +834,7 @@ async function loadBracket() {
     renderBracket(data);
     bracketStatus.textContent = "Listo";
     bracketLoaded = true;
-    fitBracketToWidth();
+    fitBracketToViewport();
   } catch (err) {
     bracketStatus.textContent = err.message;
   }
@@ -867,6 +877,7 @@ function scheduleBracketSave(matchId) {
 // Eventos
 // ====================
 refreshBtn?.addEventListener("click", resetData);
+bracketSyncBtn?.addEventListener("click", refreshBracket);
 groupsContainer?.addEventListener("click", (event) => {
   const button = event.target.closest("button[data-group]");
   if (button) {
@@ -890,7 +901,12 @@ bracketGrid?.addEventListener("input", (event) => {
 });
 window.addEventListener("resize", () => {
   if (bracketLoaded) {
-    fitBracketToWidth();
+    fitBracketToViewport();
+  }
+});
+window.addEventListener("orientationchange", () => {
+  if (bracketLoaded) {
+    fitBracketToViewport();
   }
 });
 detailPrevBtn?.addEventListener("click", () => cycleGroup(-1));
