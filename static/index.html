@@ -634,12 +634,11 @@ svg.lines{
       fallbackFromDefaults();
     }
 
-    function parseCsvIntoState(texto) {
-      const lineas = texto.trim().split(/?
-/);
-      const headers = lineas.shift()?.split(",") || [];
-      if (headers.length < 10) {
-        throw new Error("CSV incompleto");
+            function parseCsvIntoState(texto) {
+      const lineas = texto.trim().split(/\r?\n/);
+      const headers = lineas.shift()?.split(',') || [];
+        const cols = linea.split(',');
+        const g = (grupo || '').trim().toUpperCase();
       }
 
       const grupos = {};
