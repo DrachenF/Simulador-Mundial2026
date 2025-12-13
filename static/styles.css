@@ -76,7 +76,7 @@ h1 {
 }
 
 .container.full-bleed {
-  width: 100vw;
+  width: 100%;
   max-width: none;
   margin: 0;
   padding: 0;
@@ -514,6 +514,23 @@ input[type="number"] {
 @media (max-width: 699px) {
   #bracket-viewport {
     height: calc(100svh - var(--top-ui, 140px));
+  }
+}
+
+@media (max-width: 699px) {
+  /* evita gutters por centrado con max-content + scroll */
+  .bracket-grid {
+    margin: 0 !important;
+    --bracket-x: 0px !important;
+    --bracket-y: 0px !important;
+    --bracket-scale: 1 !important; /* más grande; el ancho extra se ve con scroll */
+  }
+
+  #bracket-viewport {
+    justify-content: flex-start;
+    padding: 0 10px;              /* un margen real, no “vacío” */
+    scroll-padding-left: 10px;
+    -webkit-overflow-scrolling: touch;
   }
 }
 
