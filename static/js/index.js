@@ -498,6 +498,9 @@ async function resetGroup() {
 const MATCH_HEIGHT = 70;
 const MATCH_GAP = 18;
 
+// Orden fijo de los dieciseisavos para respetar la disposición
+// 1E-3ro, 1I-3ro, 2A-2B, 1F-2C, 2K-2L, 1H-2J, 1D-3ro, 1G-3ro en el lado izquierdo
+// y 1C-2F, 2E-2I, 1A-3ro, 1L-3ro, 1J-2H, 2D-2G, 1B-3ro, 1K-3ro en el derecho.
 const LEFT_LAYOUT = {
   R32: [1, 2, 3, 4, 5, 6, 7, 8],
   R16: [17, 18, 19, 20],
