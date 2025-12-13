@@ -657,6 +657,11 @@ svg.lines{
       });
     }
 
+    function ensureStateHasGroups() {
+      if (state.order && state.order.length) return;
+      loadDefaults();
+    }
+
     function loadDefaults() {
       state.baseStats = {};
       state.order.forEach((g) => {
@@ -947,13 +952,20 @@ svg.lines{
       renderAllTables();
     }
 
-    // ====== Ciclo de render ======
-    function renderAll() {
-      renderStage();
-      renderGroupBar();
-      if (state.stage === "groups") {
-        renderGroupTable();
-      }
+      try {
+        const texto = await fetchCsvText();
+        if (texto) {
+          try {
+            parseCsvIntoState(texto);
+          } catch (err) {
+            console.error("Fallo al leer CSV", err);
+            loadDefaults();
+          }
+        } else {
+      } catch (err) {
+        console.error("Error al cargar CSV", err);
+
+      ensureStateHasGroups();
       if (state.stage === "tables") {
         renderAllTables();
       }
