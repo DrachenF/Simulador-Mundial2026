@@ -37,6 +37,10 @@ body {
   gap: 6px;
 }
 
+.phase-elimination .hero-container {
+  display: none;
+}
+
 header {
   padding: 12px 12px 4px;
   display: flex;
@@ -505,7 +509,11 @@ input[type="number"] {
 #bracket-viewport {
   width: 100%;
   position: relative;
-  min-height: calc(100svh - 260px);
+  height: calc(100dvh - 190px);
+  min-height: 560px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
 }
 
 .bracket-shell .card-header {
@@ -519,7 +527,7 @@ input[type="number"] {
   align-items: flex-start;
   min-height: 720px;
   transform-origin: top center;
-  width: 100%;
+  inline-size: max-content;
   padding: 12px;
   transform: translateX(var(--bracket-shift, 0px)) scale(var(--bracket-scale, 1));
 }

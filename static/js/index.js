@@ -42,6 +42,8 @@ function setPhase(phase) {
     panel.classList.toggle("hidden", panel.dataset.phasePanel !== phase);
   });
 
+  document.body.classList.toggle("phase-elimination", phase === "elimination");
+
   if (phase === "elimination") {
     groupTabsWrapper?.classList.add("hidden");
     if (!bracketLoaded) {
@@ -752,10 +754,8 @@ function fitBracketToViewport() {
 
   const viewportRect = viewport.getBoundingClientRect();
   const availableWidth = viewport.clientWidth;
-  const availableHeight = Math.max(
-    240,
-    window.innerHeight - viewportRect.top - 12,
-  );
+  const visualHeight = window.visualViewport?.height || window.innerHeight;
+  const availableHeight = Math.max(240, visualHeight - viewportRect.top - 12);
   const neededWidth = bracket.scrollWidth;
   const neededHeight = bracket.scrollHeight;
   const scale = Math.min(1, availableWidth / neededWidth, availableHeight / neededHeight);
@@ -763,7 +763,7 @@ function fitBracketToViewport() {
 
   bracket.style.setProperty("--bracket-scale", scale);
   bracket.style.setProperty("--bracket-shift", `${shift}px`);
-  viewport.style.height = `${neededHeight * scale}px`;
+  viewport.style.height = `${Math.min(availableHeight, neededHeight * scale)}px`;
 }
 
 function renderThirds(list) {
