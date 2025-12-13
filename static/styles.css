@@ -476,23 +476,6 @@ input[type="number"] {
   box-sizing: border-box;
 }
 
-@media (min-width: 1100px) {
-  .elim-layout {
-    display: grid;
-    grid-template-columns: minmax(320px, 380px) 1fr;
-    align-items: start;
-    gap: 14px;
-  }
-}
-
-@media (min-width: 860px) and (max-width: 1099px) {
-  .elim-layout {
-    display: grid;
-    grid-template-columns: minmax(280px, 320px) 1fr;
-    align-items: start;
-  }
-}
-
 .elim-layout > .card {
   margin: 0;
 }
@@ -523,8 +506,9 @@ input[type="number"] {
   min-height: 0;
   display: flex;
   align-items: flex-start;
-  justify-content: center;
-  overflow: hidden;
+  justify-content: flex-start;
+  overflow-x: auto;
+  overflow-y: hidden;
 }
 
 @media (max-width: 699px) {
@@ -546,7 +530,16 @@ input[type="number"] {
   inline-size: max-content;
   block-size: max-content;
   padding: clamp(6px, 1vw, 14px);
+  margin: 0 auto;
   transform: translate3d(var(--bracket-x, 0px), var(--bracket-y, 0px), 0) scale(var(--bracket-scale, 1));
+}
+
+@media (min-width: 1100px) {
+  .bracket-grid {
+    --bracket-x: 0px !important;
+    --bracket-y: 0px !important;
+    --bracket-scale: 1 !important;
+  }
 }
 
 .bracket-lines {
