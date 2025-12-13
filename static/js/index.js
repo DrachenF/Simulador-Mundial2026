@@ -48,6 +48,8 @@ function setPhase(phase) {
     groupTabsWrapper?.classList.add("hidden");
     if (!bracketLoaded) {
       loadBracket();
+    } else {
+      fitBracket();
     }
   } else {
     groupTabsWrapper?.classList.remove("hidden");
@@ -743,27 +745,63 @@ function drawConnectors() {
   });
 }
 
-function fitBracketToViewport() {
+function clamp(value, min, max) {
+  return Math.max(min, Math.min(value, max));
+}
+
+function updateTopUiOffset() {
+  const viewport = document.getElementById("bracket-viewport");
+  const elimPanel = document.querySelector('[data-phase-panel="elimination"]');
+  if (!viewport || !elimPanel || elimPanel.classList.contains("hidden")) return 0;
+
+  const offset = viewport.getBoundingClientRect().top;
+  const value = Math.max(110, Math.round(offset + 8));
+  viewport.style.setProperty("--top-ui", `${value}px`);
+  return value;
+}
+
+function fitBracket() {
   const viewport = document.getElementById("bracket-viewport");
   const bracket = document.getElementById("bracket-grid");
-  if (!viewport || !bracket) return;
+  const elimPanel = document.querySelector('[data-phase-panel="elimination"]');
+
+  if (!viewport || !bracket || !elimPanel || elimPanel.classList.contains("hidden")) return;
+
+  updateTopUiOffset();
 
   bracket.style.setProperty("--bracket-scale", "1");
-  bracket.style.setProperty("--bracket-shift", "0px");
-  drawConnectors();
+  bracket.style.setProperty("--bracket-x", "0px");
+  bracket.style.setProperty("--bracket-y", "0px");
 
-  const viewportRect = viewport.getBoundingClientRect();
+  const naturalWidth = bracket.scrollWidth;
+  const naturalHeight = bracket.scrollHeight;
+
   const availableWidth = viewport.clientWidth;
-  const visualHeight = window.visualViewport?.height || window.innerHeight;
-  const availableHeight = Math.max(240, visualHeight - viewportRect.top - 12);
-  const neededWidth = bracket.scrollWidth;
-  const neededHeight = bracket.scrollHeight;
-  const scale = Math.min(1, availableWidth / neededWidth, availableHeight / neededHeight);
-  const shift = Math.max(0, (availableWidth - neededWidth * scale) / 2);
+  const availableHeight = viewport.clientHeight;
+  const isMobile = window.innerWidth <= 699;
+
+  let scale = 1;
+  if (isMobile) {
+    scale = Math.min(availableWidth / naturalWidth, availableHeight / naturalHeight);
+    scale = clamp(scale, 0.2, 1);
+  } else {
+    const fitsWidth = naturalWidth <= availableWidth;
+    const fitsHeight = naturalHeight <= availableHeight;
+    if (!fitsWidth || !fitsHeight) {
+      const scaleW = availableWidth / naturalWidth;
+      const scaleH = availableHeight / naturalHeight;
+      scale = clamp(Math.min(scaleW, scaleH), 0.85, 1);
+    }
+  }
+
+  const offsetX = (availableWidth - naturalWidth * scale) / 2;
+  const offsetY = (availableHeight - naturalHeight * scale) / 2;
 
   bracket.style.setProperty("--bracket-scale", scale);
-  bracket.style.setProperty("--bracket-shift", `${shift}px`);
-  viewport.style.height = `${Math.min(availableHeight, neededHeight * scale)}px`;
+  bracket.style.setProperty("--bracket-x", `${offsetX}px`);
+  bracket.style.setProperty("--bracket-y", `${offsetY}px`);
+
+  requestAnimationFrame(drawConnectors);
 }
 
 function renderThirds(list) {
@@ -821,7 +859,7 @@ function renderBracket(bracket) {
     layoutSide(leftSide);
     layoutSide(rightSide);
     placeCenterMatches();
-    fitBracketToViewport();
+    fitBracket();
   }
 }
 
@@ -834,7 +872,7 @@ async function loadBracket() {
     renderBracket(data);
     bracketStatus.textContent = "Listo";
     bracketLoaded = true;
-    fitBracketToViewport();
+    fitBracket();
   } catch (err) {
     bracketStatus.textContent = err.message;
   }
@@ -901,12 +939,12 @@ bracketGrid?.addEventListener("input", (event) => {
 });
 window.addEventListener("resize", () => {
   if (bracketLoaded) {
-    fitBracketToViewport();
+    fitBracket();
   }
 });
 window.addEventListener("orientationchange", () => {
   if (bracketLoaded) {
-    fitBracketToViewport();
+    fitBracket();
   }
 });
 detailPrevBtn?.addEventListener("click", () => cycleGroup(-1));

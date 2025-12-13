@@ -37,7 +37,8 @@ body {
   gap: 6px;
 }
 
-.phase-elimination .hero-container {
+.phase-elimination .hero-container,
+.phase-elimination [data-phase-panel="groups"] {
   display: none;
 }
 
@@ -478,7 +479,16 @@ input[type="number"] {
 @media (min-width: 1100px) {
   .elim-layout {
     display: grid;
-    grid-template-columns: minmax(280px, 340px) 1fr;
+    grid-template-columns: minmax(320px, 380px) 1fr;
+    align-items: start;
+    gap: 14px;
+  }
+}
+
+@media (min-width: 860px) and (max-width: 1099px) {
+  .elim-layout {
+    display: grid;
+    grid-template-columns: minmax(280px, 320px) 1fr;
     align-items: start;
   }
 }
@@ -500,7 +510,7 @@ input[type="number"] {
   background: linear-gradient(135deg, rgba(10, 12, 17, 0.92), rgba(7, 9, 14, 0.96));
   border: none;
   border-radius: 0;
-  padding: 6px 0 10px;
+  padding: 2px 0 8px;
   box-shadow: none;
   overflow: visible;
   width: 100%;
@@ -509,11 +519,19 @@ input[type="number"] {
 #bracket-viewport {
   width: 100%;
   position: relative;
-  height: calc(100dvh - 190px);
-  min-height: 560px;
+  height: calc(100vh - var(--top-ui, 200px));
+  min-height: 360px;
   display: flex;
   align-items: flex-start;
   justify-content: center;
+  overflow: hidden;
+}
+
+@media (max-width: 699px) {
+  #bracket-viewport {
+    height: calc(100svh - var(--top-ui, 140px));
+    min-height: 0;
+  }
 }
 
 .bracket-shell .card-header {
@@ -525,11 +543,11 @@ input[type="number"] {
   display: flex;
   gap: 24px;
   align-items: flex-start;
-  min-height: 720px;
-  transform-origin: top center;
+  transform-origin: 50% 0%;
   inline-size: max-content;
+  block-size: max-content;
   padding: 12px;
-  transform: translateX(var(--bracket-shift, 0px)) scale(var(--bracket-scale, 1));
+  transform: translate3d(var(--bracket-x, 0px), var(--bracket-y, 0px), 0) scale(var(--bracket-scale, 1));
 }
 
 .bracket-lines {
