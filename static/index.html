@@ -519,40 +519,9 @@ svg.lines{
     </section>
   </div>
 
-  <script>
-    // ====== Equipos base (se sobreescriben al leer CSV) ======
-    const DEFAULT_GROUPS = {
-      A: ["México", "Sudáfrica", "República de Corea", "Dinamarca"],
-      B: ["Canadá", "Italia", "Qatar", "Suiza"],
-      C: ["Brasil", "Marruecos", "Haití", "Japón"],
-      D: ["Argentina", "Estados Unidos", "Ghana", "Países Bajos"],
-      E: ["España", "Croacia", "Australia", "Irán"],
-      F: ["Francia", "Senegal", "Uruguay", "Suecia"],
-      G: ["Alemania", "Colombia", "Egipto", "Polonia"],
-      H: ["Portugal", "Nigeria", "Serbia", "Chile"],
-      I: ["Inglaterra", "Camerún", "Ecuador", "Noruega"],
-      J: ["Bélgica", "Perú", "Túnez", "Costa Rica"],
-      K: ["Italia (2)", "Corea del Sur (2)", "México (2)", "Marruecos (2)"],
-      L: ["Brasil (2)", "Argentina (2)", "España (2)", "Francia (2)"],
-    };
-
-    let GROUPS = { ...DEFAULT_GROUPS };
-    const emptyRow = (team) => ({ team, pj:0, g:0, e:0, p:0, gf:0, gc:0, dg:0, pts:0 });
-
-    let groupStats = {};
-    let groupOrder = Object.keys(DEFAULT_GROUPS);
-    function resetGroupStats(source){
-      groupStats = {};
-      for (const [g, teams] of Object.entries(source)){
-        groupStats[g] = teams.map(emptyRow);
-      }
-    }
-    resetGroupStats(GROUPS);
-
-    // ====== Estado ======
-    const state = { stage: "groups", group: "A" };
-
-    // ====== Elementos ======
+  
+<script>
+    // ====== Elementos comunes ======
     const tabGroups = document.getElementById("tab-groups");
     const tabTables = document.getElementById("tab-tables");
     const tabKO = document.getElementById("tab-ko");
@@ -570,74 +539,247 @@ svg.lines{
     const allTablesGrid = document.getElementById("allTablesGrid");
     const bestThirdsBody = document.getElementById("bestThirdsBody");
 
-    // ====== Helpers ======
-    function escapeHtml(str){
+    // ====== Estado ======
+    const defaultGroups = {
+      A: ["México", "Sudáfrica", "República de Corea", "Dinamarca"],
+      B: ["Canadá", "Italia", "Qatar", "Suiza"],
+      C: ["Brasil", "Marruecos", "Haití", "Japón"],
+      D: ["Argentina", "Estados Unidos", "Ghana", "Países Bajos"],
+      E: ["España", "Croacia", "Australia", "Irán"],
+      F: ["Francia", "Senegal", "Uruguay", "Suecia"],
+      G: ["Alemania", "Colombia", "Egipto", "Polonia"],
+      H: ["Portugal", "Nigeria", "Serbia", "Chile"],
+      I: ["Inglaterra", "Camerún", "Ecuador", "Noruega"],
+      J: ["Bélgica", "Perú", "Túnez", "Costa Rica"],
+      K: ["Italia (2)", "Corea del Sur (2)", "México (2)", "Marruecos (2)"],
+      L: ["Brasil (2)", "Argentina (2)", "España (2)", "Francia (2)"],
+    };
+
+    const state = {
+      stage: "groups",
+      group: null,
+      baseStats: {},
+      fixtures: {},
+      matches: {},
+      order: [],
+    };
+
+    // ====== Utilidades ======
+    const emptyRow = (team) => ({ team, pj: 0, w: 0, d: 0, l: 0, gf: 0, gc: 0, dg: 0, pts: 0 });
+
+    function escapeHtml(str) {
       return String(str)
-        .replaceAll("&","&amp;")
-        .replaceAll("<","&lt;")
-        .replaceAll(">","&gt;")
-        .replaceAll('"',"&quot;")
-        .replaceAll("'","&#039;");
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
     }
 
-    function sortStandings(rows){
-      return [...rows].sort((a,b) => {
-        if (b.pts !== a.pts) return b.pts - a.pts;
-        if (b.dg !== a.dg) return b.dg - a.dg;
-        if (b.gf !== a.gf) return b.gf - a.gf;
-        return a.team.localeCompare(b.team, "es");
+    function sortStandings(rows) {
+      return [...rows]
+        .map((r) => ({
+          ...r,
+          dg: typeof r.dg === "number" ? r.dg : Number(r.dg || 0),
+          GF: r.GF ?? r.gf ?? 0,
+          GC: r.GC ?? r.gc ?? 0,
+          pts: r.pts ?? 0,
+        }))
+        .sort((a, b) => {
+          if (b.pts !== a.pts) return b.pts - a.pts;
+          const dgA = a.dg ?? a.DG ?? (a.GF ?? a.gf ?? 0) - (a.GC ?? a.gc ?? 0);
+          const dgB = b.dg ?? b.DG ?? (b.GF ?? b.gf ?? 0) - (b.GC ?? b.gc ?? 0);
+          if (dgB !== dgA) return dgB - dgA;
+          const gfA = a.GF ?? a.gf ?? 0;
+          const gfB = b.GF ?? b.gf ?? 0;
+          if (gfB !== gfA) return gfB - gfA;
+          return a.team.localeCompare(b.team, "es");
+        })
+        .map((r) => ({
+          ...r,
+          DG: r.dg ?? r.DG ?? (r.GF ?? r.gf ?? 0) - (r.GC ?? r.gc ?? 0),
+          GF: r.GF ?? r.gf ?? 0,
+          GC: r.GC ?? r.gc ?? 0,
+        }));
+    }
+
+    function clampNumber(value) {
+      if (value === "" || value === null || value === undefined) return null;
+      const n = Number(value);
+      if (Number.isNaN(n) || n < 0) return null;
+      return n;
+    }
+
+    // ====== Carga inicial desde CSV ======
+    async function loadFromCsv() {
+      const candidatos = ["/grupos.csv", "/ResultadoGrupos.csv"];
+      let ultimoError;
+
+      for (const url of candidatos) {
+        try {
+          const res = await fetch(url);
+          if (!res.ok) {
+            ultimoError = new Error(`No se pudo leer ${url}`);
+            continue;
+          }
+          const texto = await res.text();
+          parseCsvIntoState(texto);
+          return;
+        } catch (err) {
+          ultimoError = err;
+        }
+      }
+
+      console.warn("Fallo la carga desde CSV", ultimoError);
+      fallbackFromDefaults();
+    }
+
+    function parseCsvIntoState(texto) {
+      const lineas = texto.trim().split(/?
+/);
+      const headers = lineas.shift()?.split(",") || [];
+      if (headers.length < 10) {
+        throw new Error("CSV incompleto");
+      }
+
+      const grupos = {};
+      lineas.forEach((linea) => {
+        if (!linea.trim()) return;
+        const cols = linea.split(",");
+        if (cols.length < 10) return;
+        const [grupo, pais, pj, w, d, l, GF, GC, DG, pts] = cols;
+        const fila = {
+          team: pais.trim(),
+          pj: Number(pj) || 0,
+          w: Number(w) || 0,
+          d: Number(d) || 0,
+          l: Number(l) || 0,
+          gf: Number(GF) || 0,
+          gc: Number(GC) || 0,
+          dg: Number(DG) || 0,
+          pts: Number(pts) || 0,
+        };
+        const g = (grupo || "").trim().toUpperCase();
+        if (!g) return;
+        grupos[g] = grupos[g] || [];
+        grupos[g].push(fila);
       });
+
+      state.baseStats = {};
+      state.order = Object.keys(grupos).sort();
+      state.order.forEach((g) => {
+        state.baseStats[g] = grupos[g];
+      });
+      bootstrapFixtures();
     }
 
-    // ====== FIXTURES (solo diseño) ======
-    function fixturesHtml(groupLetter){
-      const teams = GROUPS[groupLetter] || ["Selección", "Selección", "Selección", "Selección"];
-      const t1 = teams[0] || "Selección";
-      const t2 = teams[1] || "Selección";
-      const t3 = teams[2] || "Selección";
-      const t4 = teams[3] || "Selección";
-
-      return `
-        <div class="mdTitle">Jornada 1</div>
-        <div class="fixtures">
-          ${fixtureRow(t1, t2)}
-          ${fixtureRow(t3, t4)}
-        </div>
-
-        <div style="height:12px"></div>
-
-        <div class="mdTitle">Jornada 2</div>
-        <div class="fixtures">
-          ${fixtureRow(t1, t3)}
-          ${fixtureRow(t2, t4)}
-        </div>
-
-        <div style="height:12px"></div>
-
-        <div class="mdTitle">Jornada 3</div>
-        <div class="fixtures">
-          ${fixtureRow(t1, t4)}
-          ${fixtureRow(t2, t3)}
-        </div>
-      `;
+    function fallbackFromDefaults() {
+      state.baseStats = {};
+      state.order = Object.keys(defaultGroups);
+      state.order.forEach((g) => {
+        state.baseStats[g] = defaultGroups[g].map((team) => emptyRow(team));
+      });
+      bootstrapFixtures();
     }
 
-    function fixtureRow(left, right){
-      return `
-        <div class="fixtureRow">
-          <div class="teamName">${escapeHtml(left)}</div>
-          <div class="score" aria-hidden="true">
-            <span class="box"> </span>
-            <span class="dash">–</span>
-            <span class="box"> </span>
-          </div>
-          <div class="teamName right">${escapeHtml(right)}</div>
-        </div>
-      `;
+    function bootstrapFixtures() {
+      state.fixtures = {};
+      state.matches = {};
+      state.order.forEach((g) => {
+        const equipos = state.baseStats[g]?.map((t) => t.team) || [];
+        const calendario = buildCalendar(equipos);
+        state.fixtures[g] = calendario;
+        state.matches[g] = calendario.map((jornada) => ({
+          jornada: jornada.jornada,
+          partidos: jornada.partidos.map((p) => ({ ...p, goles1: null, goles2: null })),
+        }));
+      });
+      state.group = state.order[0] || null;
     }
 
-    // ====== Render: Stage ======
-    function renderStage(){
+    function buildCalendar(teams) {
+      const [t1 = "Equipo 1", t2 = "Equipo 2", t3 = "Equipo 3", t4 = "Equipo 4"] = teams;
+      return [
+        {
+          jornada: 1,
+          partidos: [
+            { equipo1: t1, equipo2: t2 },
+            { equipo1: t3, equipo2: t4 },
+          ],
+        },
+        {
+          jornada: 2,
+          partidos: [
+            { equipo1: t1, equipo2: t3 },
+            { equipo1: t2, equipo2: t4 },
+          ],
+        },
+        {
+          jornada: 3,
+          partidos: [
+            { equipo1: t1, equipo2: t4 },
+            { equipo1: t2, equipo2: t3 },
+          ],
+        },
+      ];
+    }
+
+    // ====== Cálculo de tabla ======
+    function computeStandings(groupId) {
+      const base = state.baseStats[groupId] || [];
+      const matches = state.matches[groupId] || [];
+      const flat = matches.flatMap((j) => j.partidos || []);
+      const completos = flat.filter((p) => p.goles1 !== null && p.goles2 !== null);
+
+      if (!completos.length) return sortStandings(base);
+
+      const equipos = base.map((t) => t.team);
+      const tabla = new Map(equipos.map((team) => [team, emptyRow(team)]));
+
+      completos.forEach((p) => {
+        const g1 = Number(p.goles1);
+        const g2 = Number(p.goles2);
+        if (Number.isNaN(g1) || Number.isNaN(g2)) return;
+        const e1 = tabla.get(p.equipo1);
+        const e2 = tabla.get(p.equipo2);
+        if (!e1 || !e2) return;
+        e1.pj += 1;
+        e2.pj += 1;
+        e1.gf += g1;
+        e1.gc += g2;
+        e2.gf += g2;
+        e2.gc += g1;
+        if (g1 > g2) {
+          e1.w += 1;
+          e2.l += 1;
+        } else if (g2 > g1) {
+          e2.w += 1;
+          e1.l += 1;
+        } else {
+          e1.d += 1;
+          e2.d += 1;
+        }
+      });
+
+      return sortStandings(
+        Array.from(tabla.values()).map((t) => ({
+          ...t,
+          DG: t.gf - t.gc,
+          pts: t.w * 3 + t.d,
+        }))
+      );
+    }
+
+    function standingsByGroup() {
+      const mapa = {};
+      state.order.forEach((g) => {
+        mapa[g] = computeStandings(g);
+      });
+      return mapa;
+    }
+
+    // ====== Render por panel ======
+    function renderStage() {
       const s = state.stage;
       tabGroups.setAttribute("aria-selected", String(s === "groups"));
       tabTables.setAttribute("aria-selected", String(s === "tables"));
@@ -652,50 +794,90 @@ svg.lines{
       if (s === "ko") statusPill.textContent = `Fase: Eliminatoria`;
     }
 
-    // ====== Render: Group view ======
-    function renderGroupBar(){
+    function renderGroupBar() {
       groupBar.innerHTML = "";
-      const letters = groupOrder.length ? groupOrder : Object.keys(GROUPS);
-      for (const g of letters){
+      state.order.forEach((g) => {
         const b = document.createElement("button");
         b.className = "gbtn";
         b.type = "button";
         b.textContent = g;
         b.setAttribute("role", "tab");
         b.setAttribute("aria-selected", String(state.group === g));
-        b.addEventListener("click", () => { state.group = g; renderAll(); });
+        b.addEventListener("click", () => {
+          state.group = g;
+          renderAll();
+        });
         groupBar.appendChild(b);
-      }
+      });
     }
 
-    function renderGroupTable(){
-      const rows = sortStandings(groupStats[state.group] || []);
+    function renderGroupTable() {
+      if (!state.group) return;
+      const rows = computeStandings(state.group);
       groupHeading.textContent = `Grupo ${state.group}`;
 
-      groupBody.innerHTML = rows.map(r => `
+      groupBody.innerHTML = rows
+        .map(
+          (r) => `
         <tr>
           <td class="team">${escapeHtml(r.team)}</td>
           <td class="num">${r.pj}</td>
-          <td class="num">${r.g}</td>
-          <td class="num">${r.e}</td>
-          <td class="num">${r.p}</td>
+          <td class="num">${r.w}</td>
+          <td class="num">${r.d}</td>
+          <td class="num">${r.l}</td>
           <td class="num">${r.gf}</td>
           <td class="num">${r.gc}</td>
-          <td class="num">${r.dg}</td>
+          <td class="num">${r.DG ?? r.dg}</td>
           <td class="num">${r.pts}</td>
-        </tr>
-      `).join("");
+        </tr>`
+        )
+        .join("");
 
-      groupContent.innerHTML = fixturesHtml(state.group);
+      renderGroupFixtures();
     }
 
-    // ====== Render: Tables view ======
-    function renderAllTables(){
-      allTablesGrid.innerHTML = "";
-      const letters = groupOrder.length ? groupOrder : Object.keys(GROUPS);
+    function renderGroupFixtures() {
+      if (!state.group) return;
+      const jornadas = state.matches[state.group] || [];
+      if (!jornadas.length) {
+        groupContent.innerHTML = "<p class='subtitle'>No hay calendario para este grupo.</p>";
+        return;
+      }
 
-      for (const g of letters){
-        const rows = sortStandings(groupStats[g] || []);
+      const bloques = jornadas
+        .map((jornada, jIndex) => {
+          const filas = jornada.partidos
+            .map((p, pIndex) => {
+              const g1 = p.goles1 ?? "";
+              const g2 = p.goles2 ?? "";
+              return `
+                <div class="fixtureRow" data-group="${state.group}" data-jornada="${jIndex}" data-match="${pIndex}">
+                  <div class="teamName">${escapeHtml(p.equipo1)}</div>
+                  <div class="score">
+                    <input class="box" type="number" inputmode="numeric" min="0" data-field="g1" value="${g1}" aria-label="Goles de ${escapeHtml(p.equipo1)}" />
+                    <span class="dash">–</span>
+                    <input class="box" type="number" inputmode="numeric" min="0" data-field="g2" value="${g2}" aria-label="Goles de ${escapeHtml(p.equipo2)}" />
+                  </div>
+                  <div class="teamName right">${escapeHtml(p.equipo2)}</div>
+                </div>`;
+            })
+            .join("");
+          return `
+            <div class="mdTitle">Jornada ${jornada.jornada}</div>
+            <div class="fixtures">${filas}</div>
+          `;
+        })
+        .join('<div style="height:12px"></div>');
+
+      groupContent.innerHTML = bloques;
+    }
+
+    function renderAllTables() {
+      if (!allTablesGrid || !bestThirdsBody) return;
+      allTablesGrid.innerHTML = "";
+      const mapa = standingsByGroup();
+      state.order.forEach((g) => {
+        const rows = mapa[g] || [];
         const card = document.createElement("div");
         card.className = "card mini";
         card.innerHTML = `
@@ -721,467 +903,139 @@ svg.lines{
                   </tr>
                 </thead>
                 <tbody>
-                  ${rows.map(r => `
-                    <tr>
-                      <td class="team">${escapeHtml(r.team)}</td>
-                      <td class="num">${r.pj}</td>
-                      <td class="num">${r.g}</td>
-                      <td class="num">${r.e}</td>
-                      <td class="num">${r.p}</td>
-                      <td class="num">${r.gf}</td>
-                      <td class="num">${r.gc}</td>
-                      <td class="num">${r.dg}</td>
-                      <td class="num">${r.pts}</td>
-                    </tr>
-                  `).join("")}
+                  ${rows
+                    .map(
+                      (r) => `
+                        <tr>
+                          <td class="team">${escapeHtml(r.team)}</td>
+                          <td class="num">${r.pj}</td>
+                          <td class="num">${r.w}</td>
+                          <td class="num">${r.d}</td>
+                          <td class="num">${r.l}</td>
+                          <td class="num">${r.gf}</td>
+                          <td class="num">${r.gc}</td>
+                          <td class="num">${r.DG ?? r.dg}</td>
+                          <td class="num">${r.pts}</td>
+                        </tr>`
+                    )
+                    .join("")}
                 </tbody>
               </table>
             </div>
           </div>
         `;
         allTablesGrid.appendChild(card);
-      }
-    }
-
-    function renderBestThirds(){
-      const letters = groupOrder.length ? groupOrder : Object.keys(GROUPS);
-
-      const thirds = letters.map(g => {
-        const ordered = sortStandings(groupStats[g] || []);
-        const third = ordered[2] || null;
-        return third ? { group: g, ...third } : null;
-      }).filter(Boolean);
-
-      thirds.sort((a,b) => {
-        if (b.pts !== a.pts) return b.pts - a.pts;
-        if (b.dg !== a.dg) return b.dg - a.dg;
-        if (b.gf !== a.gf) return b.gf - a.gf;
-        if (a.group !== b.group) return a.group.localeCompare(b.group, "es");
-        return a.team.localeCompare(b.team, "es");
       });
 
-      const top8 = thirds.slice(0, 8);
+      renderBestThirds(mapa);
+    }
 
-      bestThirdsBody.innerHTML = top8.map((r, idx) => `
+    function renderBestThirds(mapa) {
+      const thirds = state.order
+        .map((g) => {
+          const ordered = mapa[g] || [];
+          const third = ordered[2];
+          return third ? { group: g, ...third } : null;
+        })
+        .filter(Boolean)
+        .sort((a, b) => {
+          if (b.pts !== a.pts) return b.pts - a.pts;
+          if (b.DG !== a.DG) return b.DG - a.DG;
+          if (b.gf !== a.gf) return b.gf - a.gf;
+          return a.group.localeCompare(b.group);
+        });
+
+      const top8 = thirds.slice(0, 8);
+      bestThirdsBody.innerHTML = top8
+        .map(
+          (r, idx) => `
         <tr>
           <td class="num">${idx + 1}</td>
           <td class="team">${escapeHtml(r.group)}</td>
           <td class="team">${escapeHtml(r.team)}</td>
           <td class="num">${r.pj}</td>
-          <td class="num">${r.g}</td>
-          <td class="num">${r.e}</td>
-          <td class="num">${r.p}</td>
+          <td class="num">${r.w}</td>
+          <td class="num">${r.d}</td>
+          <td class="num">${r.l}</td>
           <td class="num">${r.gf}</td>
           <td class="num">${r.gc}</td>
-          <td class="num">${r.dg}</td>
+          <td class="num">${r.DG ?? r.dg}</td>
           <td class="num">${r.pts}</td>
-        </tr>
-      `).join("");
+        </tr>`
+        )
+        .join("");
     }
 
-    // =========================
-    // ELIMINATORIA: Bracket (solo gráfico) + SVG líneas
-    // Basado en tu bracket.html (sin carrusel; ahora con scroll)
-    // =========================
-    const koLeftSide = document.getElementById("koLeftSide");
-    const koRightSide = document.getElementById("koRightSide");
-    const koCenter = document.getElementById("koCenter");
-    const koLines = document.getElementById("koLines");
+    // ====== Eventos ======
+    function handleFixtureInput(event) {
+      const input = event.target;
+      if (!input.matches("input[type='number']")) return;
+      const row = input.closest(".fixtureRow");
+      if (!row) return;
+      const g = row.dataset.group;
+      const jornadaIdx = Number(row.dataset.jornada);
+      const matchIdx = Number(row.dataset.match);
+      const match = state.matches[g]?.[jornadaIdx]?.partidos?.[matchIdx];
+      if (!match) return;
 
-    // Placeholder (solo diseño)
-    const teamsLeft = [
-      "HAITÍ","FRANCIA","A. SAUDITA","SUDÁFRICA","UEFA 1","P. BAJOS","MARRUECOS","FIFA 1",
-      "CROACIA","ESPAÑA","ARGELIA","E. UNIDOS","FIFA 2","BRASIL","URUGUAY","COLOMBIA"
-    ];
-    const teamsRight = [
-      "JAPÓN","CURAZAO","SENEGAL","MÉXICO","C. DE MARFIL","INGLATERRA","UZBEKISTÁN","ARGENTINA",
-      "C. VERDE","AUSTRALIA","EGIPTO","CANADÁ","AUSTRIA","ITALIA","ALEMANIA","PORTUGAL"
-    ];
+      const field = input.dataset.field === "g2" ? "goles2" : "goles1";
+      const otherField = field === "goles1" ? "goles2" : "goles1";
 
-    function el(tag, attrs={}, children=[]){
-      const n = document.createElement(tag);
-      for(const [k,v] of Object.entries(attrs)){
-        if(k === "class") n.className = v;
-        else if(k === "text") n.textContent = v;
-        else n.setAttribute(k, v);
-      }
-      for(const c of children) n.appendChild(c);
-      return n;
-    }
+      const val = clampNumber(input.value);
+      match[field] = val;
 
-    function matchNode({ id, teamA="—", teamB="—", next="" }){
-      const m = el("div", { class:"match", "data-id":id, "data-next":next });
-      m.appendChild(el("div", { class:"mteam", title:teamA }, [
-        document.createTextNode(teamA),
-        el("span",{ class:"pick" })
-      ]));
-      m.appendChild(el("div", { class:"mteam", title:teamB }, [
-        document.createTextNode(teamB),
-        el("span",{ class:"pick" })
-      ]));
-      return m;
-    }
-
-    function roundNode(title){
-      const r = el("div",{ class:"round" });
-      r.appendChild(el("div",{ class:"rt", text:title }));
-      return r;
-    }
-
-    function placeMatch(roundEl, matchEl, top){
-      matchEl.style.top = `${top}px`;
-      roundEl.appendChild(matchEl);
-    }
-
-    // Mapa simple para dibujar líneas: from -> to
-    function line(svg, x1,y1,x2,y2){
-      const p = document.createElementNS("http://www.w3.org/2000/svg","path");
-      const mid = (x1 + x2) / 2;
-      p.setAttribute("d", `M ${x1} ${y1} L ${mid} ${y1} L ${mid} ${y2} L ${x2} ${y2}`);
-      p.setAttribute("fill","none");
-      p.setAttribute("stroke","rgba(255,255,255,.25)");
-      p.setAttribute("stroke-width","2");
-      p.setAttribute("stroke-linecap","round");
-      svg.appendChild(p);
-    }
-
-    function centerBlock(){
-      const c = el("div",{ class:"block" });
-
-      // etiquetas
-      const rtFinal = el("div",{ class:"rt", text:"FINAL" });
-      rtFinal.style.top = "0px";
-      c.appendChild(rtFinal);
-
-      const rt3 = el("div",{ class:"rt", text:"TERCER LUGAR" });
-      rt3.style.top = "250px";
-      c.appendChild(rt3);
-
-      // Final (2 equipos)
-      const final = matchNode({ id:"F", teamA:"—", teamB:"—" });
-      final.style.width = "260px";
-      final.style.left = "0px";
-      final.style.top = "34px";
-      c.appendChild(final);
-
-      // 3er lugar
-      const third = matchNode({ id:"T3", teamA:"—", teamB:"—" });
-      third.style.width = "260px";
-      third.style.left = "0px";
-      third.style.top = "284px";
-      c.appendChild(third);
-
-      return c;
-    }
-
-    function renderKO(){
-      // limpiar
-      koLeftSide.innerHTML = "";
-      koRightSide.innerHTML = "";
-      koCenter.innerHTML = "";
-      koLines.innerHTML = "";
-
-      // Rondas izquierda: 16vos -> 8vos -> 4tos -> Semi
-      const L16 = roundNode("16VOS");
-      const L8  = roundNode("8VOS");
-      const L4  = roundNode("4TOS");
-      const LS  = roundNode("SEMI");
-
-      // Rondas derecha (mirror visual): 16vos -> 8vos -> 4tos -> Semi (pero se dibuja igual y el contenedor invierte)
-      const R16 = roundNode("16VOS");
-      const R8  = roundNode("8VOS");
-      const R4  = roundNode("4TOS");
-      const RS  = roundNode("SEMI");
-
-      // layout vertical (simple)
-      const MH = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--koMatchH")) || 64;
-      const G  = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--koGap")) || 18;
-
-      // 16vos: 8 matches
-      const top0 = 14;
-      const step16 = MH + G;
-
-      const Lm16 = [];
-      for(let i=0;i<8;i++){
-        const a = teamsLeft[i*2] ?? "—";
-        const b = teamsLeft[i*2+1] ?? "—";
-        const m = matchNode({ id:`L16_${i+1}` });
-        // poner texto
-        m.querySelectorAll(".mteam")[0].childNodes[0].nodeValue = a;
-        m.querySelectorAll(".mteam")[1].childNodes[0].nodeValue = b;
-        placeMatch(L16, m, top0 + i*step16);
-        Lm16.push(m);
+      const otherVal = clampNumber(match[otherField]);
+      if (val === null || otherVal === null) {
+        match[field] = val;
       }
 
-      const Rm16 = [];
-      for(let i=0;i<8;i++){
-        const a = teamsRight[i*2] ?? "—";
-        const b = teamsRight[i*2+1] ?? "—";
-        const m = matchNode({ id:`R16_${i+1}` });
-        m.querySelectorAll(".mteam")[0].childNodes[0].nodeValue = a;
-        m.querySelectorAll(".mteam")[1].childNodes[0].nodeValue = b;
-        placeMatch(R16, m, top0 + i*step16);
-        Rm16.push(m);
-      }
-
-      // 8vos: 4 matches centrados entre pares de 16vos
-      const step8 = step16 * 2;
-      const off8 = top0 + (MH/2) + (G/2) - (MH/2);
-      const Lm8 = [];
-      for(let i=0;i<4;i++){
-        const m = matchNode({ id:`L8_${i+1}` });
-        placeMatch(L8, m, off8 + i*step8);
-        Lm8.push(m);
-      }
-      const Rm8 = [];
-      for(let i=0;i<4;i++){
-        const m = matchNode({ id:`R8_${i+1}` });
-        placeMatch(R8, m, off8 + i*step8);
-        Rm8.push(m);
-      }
-
-      // 4tos: 2 matches
-      const step4 = step8 * 2;
-      const off4 = off8 + (MH/2) + (G/2);
-      const Lm4 = [];
-      for(let i=0;i<2;i++){
-        const m = matchNode({ id:`L4_${i+1}` });
-        placeMatch(L4, m, off4 + i*step4);
-        Lm4.push(m);
-      }
-      const Rm4 = [];
-      for(let i=0;i<2;i++){
-        const m = matchNode({ id:`R4_${i+1}` });
-        placeMatch(R4, m, off4 + i*step4);
-        Rm4.push(m);
-      }
-
-      // Semis: 1 match por lado
-      const offS = off4 + (MH/2) + (G/2);
-      const Ls = matchNode({ id:"LS_1" });
-      placeMatch(LS, Ls, offS);
-      const Rs = matchNode({ id:"RS_1" });
-      placeMatch(RS, Rs, offS);
-
-      // Construir lados
-      koLeftSide.appendChild(L16);
-      koLeftSide.appendChild(L8);
-      koLeftSide.appendChild(L4);
-      koLeftSide.appendChild(LS);
-
-      koRightSide.appendChild(R16);
-      koRightSide.appendChild(R8);
-      koRightSide.appendChild(R4);
-      koRightSide.appendChild(RS);
-
-// Centro (final + 3er lugar)
-koCenter.appendChild(centerBlock());
-
-
-      // Ajustar tamaño del SVG a la caja real
-      requestAnimationFrame(() => {
-        const bracket = document.getElementById("koBracket");
-        const rect = bracket.getBoundingClientRect();
-        koLines.setAttribute("viewBox", `0 0 ${rect.width} ${rect.height}`);
-
-koLines.setAttribute("width", rect.width);
-koLines.setAttribute("height", rect.height);
-
-
-        // dibujar líneas con posiciones reales
-        const all = bracket.querySelectorAll(".match");
-        const byId = {};
-        all.forEach(n => byId[n.getAttribute("data-id")] = n);
-
-        function midRight(elm){
-          const r = elm.getBoundingClientRect();
-          const b = bracket.getBoundingClientRect();
-          return { x: (r.right - b.left), y: (r.top - b.top) + r.height/2 };
-        }
-        function midLeft(elm){
-          const r = elm.getBoundingClientRect();
-          const b = bracket.getBoundingClientRect();
-          return { x: (r.left - b.left), y: (r.top - b.top) + r.height/2 };
-        }
-
-        // izquierda: 16->8, 8->4, 4->S
-        for(let i=0;i<8;i++){
-          const from = byId[`L16_${i+1}`];
-          const to = byId[`L8_${Math.floor(i/2)+1}`];
-          if(from && to){
-            const a = midRight(from);
-            const b2 = midLeft(to);
-            line(koLines, a.x, a.y, b2.x, b2.y);
-          }
-        }
-        for(let i=0;i<4;i++){
-          const from = byId[`L8_${i+1}`];
-          const to = byId[`L4_${Math.floor(i/2)+1}`];
-          if(from && to){
-            const a = midRight(from);
-            const b2 = midLeft(to);
-            line(koLines, a.x, a.y, b2.x, b2.y);
-          }
-        }
-        for(let i=0;i<2;i++){
-          const from = byId[`L4_${i+1}`];
-          const to = byId["LS_1"];
-          if(from && to){
-            const a = midRight(from);
-            const b2 = midLeft(to);
-            line(koLines, a.x, a.y, b2.x, b2.y);
-          }
-        }
-
-        // derecha: 16->8, 8->4, 4->S (pero al estar mirror, conectamos desde "izquierda" del match derecho hacia "derecha" del siguiente)
-        for(let i=0;i<8;i++){
-          const from = byId[`R16_${i+1}`];
-          const to = byId[`R8_${Math.floor(i/2)+1}`];
-          if(from && to){
-            const a = midLeft(from);
-            const b2 = midRight(to);
-            line(koLines, a.x, a.y, b2.x, b2.y);
-          }
-        }
-        for(let i=0;i<4;i++){
-          const from = byId[`R8_${i+1}`];
-          const to = byId[`R4_${Math.floor(i/2)+1}`];
-          if(from && to){
-            const a = midLeft(from);
-            const b2 = midRight(to);
-            line(koLines, a.x, a.y, b2.x, b2.y);
-          }
-        }
-        for(let i=0;i<2;i++){
-          const from = byId[`R4_${i+1}`];
-          const to = byId["RS_1"];
-          if(from && to){
-            const a = midLeft(from);
-            const b2 = midRight(to);
-            line(koLines, a.x, a.y, b2.x, b2.y);
-          }
-        }
-
-        // semis -> FINAL (centro)
-        const final = byId["F"];
-        const ls = byId["LS_1"];
-        const rs = byId["RS_1"];
-        if(final && ls){
-          const a = midRight(ls);
-          const b2 = midLeft(final);
-          line(koLines, a.x, a.y, b2.x, b2.y);
-        }
-        if(final && rs){
-          const a = midLeft(rs);
-          const b2 = midRight(final);
-          line(koLines, a.x, a.y, b2.x, b2.y);
-        }
-      });
-    }
-
-    // ====== Render All ======
-    function parseGroupsCsv(text){
-      const lines = text.trim().split(/\r?\n/);
-      const header = lines.shift();
-      if (!header) throw new Error("CSV vacío");
-
-      const stats = {};
-      const order = [];
-      const groupsMap = {};
-
-      for (const line of lines){
-        if (!line.trim()) continue;
-        const cols = line.split(",");
-        if (cols.length < 10) continue;
-        const [grupo, pais, pj, w, d, l, GF, GC, DG, pts] = cols;
-        const g = (grupo || "").trim();
-        if (!order.includes(g)) order.push(g);
-
-        const teamStats = {
-          team: (pais || "").trim(),
-          pj: Number(pj) || 0,
-          g: Number(w) || 0,
-          e: Number(d) || 0,
-          p: Number(l) || 0,
-          gf: Number(GF) || 0,
-          gc: Number(GC) || 0,
-          dg: (Number(DG) || 0) || (Number(GF) || 0) - (Number(GC) || 0),
-          pts: Number(pts) || 0,
-        };
-
-        stats[g] = stats[g] || [];
-        stats[g].push(teamStats);
-        groupsMap[g] = groupsMap[g] || [];
-        groupsMap[g].push(teamStats.team);
-      }
-
-      return { stats, order, groupsMap };
-    }
-
-    async function loadGroupsFromCsv(){
-      const urls = ["grupos.csv", "/grupos.csv"];
-      let lastError = null;
-
-      for (const url of urls){
-        try{
-          const res = await fetch(url);
-          if (!res.ok) throw new Error(`No se pudo leer ${url}`);
-          const txt = await res.text();
-          return parseGroupsCsv(txt);
-        }catch(err){
-          lastError = err;
-        }
-      }
-      throw lastError || new Error("No se pudo cargar grupos.csv");
-    }
-
-    function renderAll(){
-      renderStage();
-
-      if (state.stage === "groups"){
-        renderGroupBar();
+      if (g === state.group) {
         renderGroupTable();
       }
-      if (state.stage === "tables"){
+      renderAllTables();
+    }
+
+    // ====== Ciclo de render ======
+    function renderAll() {
+      renderStage();
+      renderGroupBar();
+      if (state.stage === "groups") {
+        renderGroupTable();
+      }
+      if (state.stage === "tables") {
         renderAllTables();
-        renderBestThirds();
       }
-      if (state.stage === "ko"){
-        renderKO();
+      if (state.stage === "ko") {
+        // Vista KO permanece de muestra
       }
     }
 
-    // Eventos
-    tabGroups.addEventListener("click", () => { state.stage = "groups"; renderAll(); });
-    tabTables.addEventListener("click", () => { state.stage = "tables"; renderAll(); });
-    tabKO.addEventListener("click", () => { state.stage = "ko"; renderAll(); });
-
-    async function init(){
-      try{
-        const { stats, order, groupsMap } = await loadGroupsFromCsv();
-        groupOrder = order.length ? order : groupOrder;
-        GROUPS = Object.keys(groupsMap).length ? groupsMap : GROUPS;
-        groupStats = {};
-        for (const g of Object.keys(GROUPS)){
-          groupStats[g] = stats[g]?.map((row) => ({
-            ...row,
-            dg: typeof row.dg === "number" ? row.dg : (Number(row.gf) || 0) - (Number(row.gc) || 0),
-            pts: typeof row.pts === "number" ? row.pts : (Number(row.g) || 0) * 3 + (Number(row.e) || 0),
-          })) || (GROUPS[g] || []).map(emptyRow);
-        }
-        state.group = groupOrder[0] || state.group;
-      }catch(err){
-        console.error("No se pudo cargar grupos.csv, usando valores por defecto", err);
-        GROUPS = { ...DEFAULT_GROUPS };
-        groupOrder = Object.keys(GROUPS);
-        resetGroupStats(GROUPS);
-      }
-
+    // ====== Init ======
+    tabGroups.addEventListener("click", () => {
+      state.stage = "groups";
       renderAll();
-    }
+    });
+    tabTables.addEventListener("click", () => {
+      state.stage = "tables";
+      renderAll();
+    });
+    tabKO.addEventListener("click", () => {
+      state.stage = "ko";
+      renderAll();
+    });
 
-    // Init
-    init();
+    groupContent.addEventListener("input", handleFixtureInput);
+
+    (async function init() {
+      try {
+        await loadFromCsv();
+      } catch (err) {
+        console.error("Fallo al cargar CSV", err);
+        fallbackFromDefaults();
+      }
+      renderAll();
+    })();
   </script>
+
 </body>
 </html>
