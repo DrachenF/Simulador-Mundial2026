@@ -559,13 +559,28 @@ svg.lines{
       stage: "groups",
       group: null,
       baseStats: {},
-      fixtures: {},
       matches: {},
       order: [],
     };
 
     // ====== Utilidades ======
-    const emptyRow = (team) => ({ team, pj: 0, w: 0, d: 0, l: 0, gf: 0, gc: 0, dg: 0, pts: 0 });
+    const emptyRow = (team) => ({
+      team,
+      pj: 0,
+      w: 0,
+      d: 0,
+      l: 0,
+      gf: 0,
+      gc: 0,
+      dg: 0,
+      pts: 0,
+    });
+
+    const clampScore = (val) => {
+      if (val === "" || val === null || val === undefined) return null;
+      const n = Number(val);
+      return Number.isFinite(n) && n >= 0 ? n : null;
+    };
 
     function escapeHtml(str) {
       return String(str)
@@ -580,66 +595,38 @@ svg.lines{
       return [...rows]
         .map((r) => ({
           ...r,
-          dg: typeof r.dg === "number" ? r.dg : Number(r.dg || 0),
-          GF: r.GF ?? r.gf ?? 0,
-          GC: r.GC ?? r.gc ?? 0,
-          pts: r.pts ?? 0,
+          gf: r.GF ?? r.gf ?? 0,
+          gc: r.GC ?? r.gc ?? 0,
+          dg: r.dg ?? r.DG ?? (r.GF ?? r.gf ?? 0) - (r.GC ?? r.gc ?? 0),
+          pts: r.pts ?? (r.w || 0) * 3 + (r.d || 0),
         }))
         .sort((a, b) => {
           if (b.pts !== a.pts) return b.pts - a.pts;
-          const dgA = a.dg ?? a.DG ?? (a.GF ?? a.gf ?? 0) - (a.GC ?? a.gc ?? 0);
-          const dgB = b.dg ?? b.DG ?? (b.GF ?? b.gf ?? 0) - (b.GC ?? b.gc ?? 0);
-          if (dgB !== dgA) return dgB - dgA;
-          const gfA = a.GF ?? a.gf ?? 0;
-          const gfB = b.GF ?? b.gf ?? 0;
-          if (gfB !== gfA) return gfB - gfA;
+          if (b.dg !== a.dg) return b.dg - a.dg;
+          if (b.gf !== a.gf) return b.gf - a.gf;
           return a.team.localeCompare(b.team, "es");
         })
-        .map((r) => ({
-          ...r,
-          DG: r.dg ?? r.DG ?? (r.GF ?? r.gf ?? 0) - (r.GC ?? r.gc ?? 0),
-          GF: r.GF ?? r.gf ?? 0,
-          GC: r.GC ?? r.gc ?? 0,
-        }));
-    }
-
-    function clampNumber(value) {
-      if (value === "" || value === null || value === undefined) return null;
-      const n = Number(value);
-      if (Number.isNaN(n) || n < 0) return null;
-      return n;
+        .map((r) => ({ ...r, DG: r.dg }));
     }
 
     // ====== Carga inicial desde CSV ======
-    async function loadFromCsv() {
-      const candidatos = ["/grupos.csv", "/ResultadoGrupos.csv"];
-      let ultimoError;
-
+    async function fetchCsvText() {
+      const candidatos = ["/grupos.csv", "/ResultadoGrupos.csv", "../grupos.csv", "grupos.csv"];
       for (const url of candidatos) {
         try {
           const res = await fetch(url);
-          if (!res.ok) {
-            ultimoError = new Error(`No se pudo leer ${url}`);
-            continue;
-          }
-          const texto = await res.text();
-          parseCsvIntoState(texto);
-          return;
-        } catch (err) {
-          ultimoError = err;
+          if (!res.ok) continue;
+          return await res.text();
+        } catch (_) {
+          // sigue con el siguiente
         }
       }
-
-      console.warn("Fallo la carga desde CSV", ultimoError);
-      fallbackFromDefaults();
+      return null;
     }
 
-            function parseCsvIntoState(texto) {
+    function parseCsvIntoState(texto) {
       const lineas = texto.trim().split(/\r?\n/);
-      const headers = lineas.shift()?.split(',') || [];
-        const cols = linea.split(',');
-        const g = (grupo || '').trim().toUpperCase();
-      }
+      lineas.shift(); // encabezado
 
       const grupos = {};
       lineas.forEach((linea) => {
@@ -647,7 +634,10 @@ svg.lines{
         const cols = linea.split(",");
         if (cols.length < 10) return;
         const [grupo, pais, pj, w, d, l, GF, GC, DG, pts] = cols;
-        const fila = {
+        const g = (grupo || "").trim().toUpperCase();
+        if (!g) return;
+        grupos[g] = grupos[g] || [];
+        grupos[g].push({
           team: pais.trim(),
           pj: Number(pj) || 0,
           w: Number(w) || 0,
@@ -657,67 +647,35 @@ svg.lines{
           gc: Number(GC) || 0,
           dg: Number(DG) || 0,
           pts: Number(pts) || 0,
-        };
-        const g = (grupo || "").trim().toUpperCase();
-        if (!g) return;
-        grupos[g] = grupos[g] || [];
-        grupos[g].push(fila);
+        });
       });
 
-      state.baseStats = {};
       state.order = Object.keys(grupos).sort();
+      state.baseStats = {};
       state.order.forEach((g) => {
         state.baseStats[g] = grupos[g];
       });
-      bootstrapFixtures();
     }
 
-    function fallbackFromDefaults() {
+    function loadDefaults() {
       state.baseStats = {};
-      state.order = Object.keys(defaultGroups);
       state.order.forEach((g) => {
-        state.baseStats[g] = defaultGroups[g].map((team) => emptyRow(team));
-      });
-      bootstrapFixtures();
-    }
-
-    function bootstrapFixtures() {
-      state.fixtures = {};
-      state.matches = {};
-      state.order.forEach((g) => {
-        const equipos = state.baseStats[g]?.map((t) => t.team) || [];
-        const calendario = buildCalendar(equipos);
-        state.fixtures[g] = calendario;
-        state.matches[g] = calendario.map((jornada) => ({
-          jornada: jornada.jornada,
-          partidos: jornada.partidos.map((p) => ({ ...p, goles1: null, goles2: null })),
-        }));
-      });
-      state.group = state.order[0] || null;
-    }
-
-    function buildCalendar(teams) {
-      const [t1 = "Equipo 1", t2 = "Equipo 2", t3 = "Equipo 3", t4 = "Equipo 4"] = teams;
-      return [
-        {
-          jornada: 1,
-          partidos: [
-            { equipo1: t1, equipo2: t2 },
-            { equipo1: t3, equipo2: t4 },
-          ],
-        },
-        {
-          jornada: 2,
-          partidos: [
-            { equipo1: t1, equipo2: t3 },
-            { equipo1: t2, equipo2: t4 },
-          ],
-        },
-        {
-          jornada: 3,
-          partidos: [
-            { equipo1: t1, equipo2: t4 },
-            { equipo1: t2, equipo2: t3 },
+        const teams = (state.baseStats[g] || []).map((t) => t.team);
+        state.matches[g] = buildCalendar(teams).map((j) => ({
+          jornada: j.jornada,
+          partidos: j.partidos.map((p) => ({ ...p, goles1: null, goles2: null })),
+        { jornada: 1, partidos: [{ equipo1: t1, equipo2: t2 }, { equipo1: t3, equipo2: t4 }] },
+        { jornada: 2, partidos: [{ equipo1: t1, equipo2: t3 }, { equipo1: t2, equipo2: t4 }] },
+        { jornada: 3, partidos: [{ equipo1: t1, equipo2: t4 }, { equipo1: t2, equipo2: t3 }] },
+      const completos = matches
+        .flatMap((j) => j.partidos || [])
+        .filter((p) => p.goles1 !== null && p.goles2 !== null);
+      const tabla = new Map(base.map((t) => [t.team, emptyRow(t.team)]));
+        const g1 = Number(p.goles1);
+        const g2 = Number(p.goles2);
+        Array.from(tabla.values()).map((t) => ({ ...t, DG: t.gf - t.gc, pts: t.w * 3 + t.d }))
+      if (s === "tables") statusPill.textContent = "Fase: Tablas · A–L";
+      if (s === "ko") statusPill.textContent = "Fase: Eliminatoria";
           ],
         },
       ];
@@ -952,24 +910,19 @@ svg.lines{
           <td class="num">${idx + 1}</td>
           <td class="team">${escapeHtml(r.group)}</td>
           <td class="team">${escapeHtml(r.team)}</td>
-          <td class="num">${r.pj}</td>
-          <td class="num">${r.w}</td>
-          <td class="num">${r.d}</td>
-          <td class="num">${r.l}</td>
-          <td class="num">${r.gf}</td>
-          <td class="num">${r.gc}</td>
-          <td class="num">${r.DG ?? r.dg}</td>
-          <td class="num">${r.pts}</td>
-        </tr>`
-        )
-        .join("");
-    }
+      match[field] = clampScore(input.value);
 
-    // ====== Eventos ======
-    function handleFixtureInput(event) {
-      const input = event.target;
-      if (!input.matches("input[type='number']")) return;
-      const row = input.closest(".fixtureRow");
+      const texto = await fetchCsvText();
+      if (texto) {
+        try {
+          parseCsvIntoState(texto);
+        } catch (err) {
+          console.error("Fallo al leer CSV", err);
+          loadDefaults();
+        }
+      } else {
+        loadDefaults();
+      bootstrapFixtures();
       if (!row) return;
       const g = row.dataset.group;
       const jornadaIdx = Number(row.dataset.jornada);
