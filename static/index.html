@@ -520,8 +520,8 @@ svg.lines{
   </div>
 
   <script>
-    // ====== Equipos base ======
-    const GROUPS = {
+    // ====== Equipos base (se sobreescriben al leer CSV) ======
+    const DEFAULT_GROUPS = {
       A: ["México", "Sudáfrica", "República de Corea", "Dinamarca"],
       B: ["Canadá", "Italia", "Qatar", "Suiza"],
       C: ["Brasil", "Marruecos", "Haití", "Japón"],
@@ -536,13 +536,18 @@ svg.lines{
       L: ["Brasil (2)", "Argentina (2)", "España (2)", "Francia (2)"],
     };
 
+    let GROUPS = { ...DEFAULT_GROUPS };
     const emptyRow = (team) => ({ team, pj:0, g:0, e:0, p:0, gf:0, gc:0, dg:0, pts:0 });
 
-    // Datos (por ahora todo en 0)
-    const groupStats = {};
-    for (const [g, teams] of Object.entries(GROUPS)){
-      groupStats[g] = teams.map(emptyRow);
+    let groupStats = {};
+    let groupOrder = Object.keys(DEFAULT_GROUPS);
+    function resetGroupStats(source){
+      groupStats = {};
+      for (const [g, teams] of Object.entries(source)){
+        groupStats[g] = teams.map(emptyRow);
+      }
     }
+    resetGroupStats(GROUPS);
 
     // ====== Estado ======
     const state = { stage: "groups", group: "A" };
@@ -650,7 +655,7 @@ svg.lines{
     // ====== Render: Group view ======
     function renderGroupBar(){
       groupBar.innerHTML = "";
-      const letters = Object.keys(GROUPS);
+      const letters = groupOrder.length ? groupOrder : Object.keys(GROUPS);
       for (const g of letters){
         const b = document.createElement("button");
         b.className = "gbtn";
@@ -687,7 +692,7 @@ svg.lines{
     // ====== Render: Tables view ======
     function renderAllTables(){
       allTablesGrid.innerHTML = "";
-      const letters = Object.keys(GROUPS);
+      const letters = groupOrder.length ? groupOrder : Object.keys(GROUPS);
 
       for (const g of letters){
         const rows = sortStandings(groupStats[g] || []);
@@ -739,7 +744,7 @@ svg.lines{
     }
 
     function renderBestThirds(){
-      const letters = Object.keys(GROUPS);
+      const letters = groupOrder.length ? groupOrder : Object.keys(GROUPS);
 
       const thirds = letters.map(g => {
         const ordered = sortStandings(groupStats[g] || []);
@@ -1075,6 +1080,61 @@ koLines.setAttribute("height", rect.height);
     }
 
     // ====== Render All ======
+    function parseGroupsCsv(text){
+      const lines = text.trim().split(/\r?\n/);
+      const header = lines.shift();
+      if (!header) throw new Error("CSV vacío");
+
+      const stats = {};
+      const order = [];
+      const groupsMap = {};
+
+      for (const line of lines){
+        if (!line.trim()) continue;
+        const cols = line.split(",");
+        if (cols.length < 10) continue;
+        const [grupo, pais, pj, w, d, l, GF, GC, DG, pts] = cols;
+        const g = (grupo || "").trim();
+        if (!order.includes(g)) order.push(g);
+
+        const teamStats = {
+          team: (pais || "").trim(),
+          pj: Number(pj) || 0,
+          g: Number(w) || 0,
+          e: Number(d) || 0,
+          p: Number(l) || 0,
+          gf: Number(GF) || 0,
+          gc: Number(GC) || 0,
+          dg: (Number(DG) || 0) || (Number(GF) || 0) - (Number(GC) || 0),
+          pts: Number(pts) || 0,
+        };
+
+        stats[g] = stats[g] || [];
+        stats[g].push(teamStats);
+        groupsMap[g] = groupsMap[g] || [];
+        groupsMap[g].push(teamStats.team);
+      }
+
+      return { stats, order, groupsMap };
+    }
+
+    async function loadGroupsFromCsv(){
+      const urls = ["grupos.csv", "/grupos.csv"];
+      let lastError = null;
+
+      for (const url of urls){
+        try{
+          const res = await fetch(url);
+          if (!res.ok) throw new Error(`No se pudo leer ${url}`);
+          const txt = await res.text();
+          return parseGroupsCsv(txt);
+        }catch(err){
+          lastError = err;
+        }
+      }
+      throw lastError || new Error("No se pudo cargar grupos.csv");
+    }
+
     function renderAll(){
       renderStage();
 
@@ -1096,8 +1156,32 @@ koLines.setAttribute("height", rect.height);
     tabTables.addEventListener("click", () => { state.stage = "tables"; renderAll(); });
     tabKO.addEventListener("click", () => { state.stage = "ko"; renderAll(); });
 
+    async function init(){
+      try{
+        const { stats, order, groupsMap } = await loadGroupsFromCsv();
+        groupOrder = order.length ? order : groupOrder;
+        GROUPS = Object.keys(groupsMap).length ? groupsMap : GROUPS;
+        groupStats = {};
+        for (const g of Object.keys(GROUPS)){
+          groupStats[g] = stats[g]?.map((row) => ({
+            ...row,
+            dg: typeof row.dg === "number" ? row.dg : (Number(row.gf) || 0) - (Number(row.gc) || 0),
+            pts: typeof row.pts === "number" ? row.pts : (Number(row.g) || 0) * 3 + (Number(row.e) || 0),
+          })) || (GROUPS[g] || []).map(emptyRow);
+        }
+        state.group = groupOrder[0] || state.group;
+      }catch(err){
+        console.error("No se pudo cargar grupos.csv, usando valores por defecto", err);
+        GROUPS = { ...DEFAULT_GROUPS };
+        groupOrder = Object.keys(GROUPS);
+        resetGroupStats(GROUPS);
+      }
+
+      renderAll();
+    }
+
     // Init
-    renderAll();
+    init();
   </script>
 </body>
 </html>
