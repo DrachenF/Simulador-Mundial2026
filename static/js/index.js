@@ -769,6 +769,10 @@ function fitBracket() {
 
   updateTopUiOffset();
 
+  const prevScale = bracket.style.getPropertyValue("--bracket-scale") || "1";
+  const prevX = bracket.style.getPropertyValue("--bracket-x") || "0px";
+  const prevY = bracket.style.getPropertyValue("--bracket-y") || "0px";
+
   bracket.style.setProperty("--bracket-scale", "1");
   bracket.style.setProperty("--bracket-x", "0px");
   bracket.style.setProperty("--bracket-y", "0px");
@@ -778,28 +782,22 @@ function fitBracket() {
 
   const availableWidth = viewport.clientWidth;
   const availableHeight = viewport.clientHeight;
-  const isMobile = window.innerWidth <= 699;
 
-  let scale = 1;
-  if (isMobile) {
-    scale = Math.min(availableWidth / naturalWidth, availableHeight / naturalHeight);
-    scale = clamp(scale, 0.2, 1);
-  } else {
-    const fitsWidth = naturalWidth <= availableWidth;
-    const fitsHeight = naturalHeight <= availableHeight;
-    if (!fitsWidth || !fitsHeight) {
-      const scaleW = availableWidth / naturalWidth;
-      const scaleH = availableHeight / naturalHeight;
-      scale = clamp(Math.min(scaleW, scaleH), 0.85, 1);
-    }
-  }
+  let scale = Math.min(availableWidth / naturalWidth, availableHeight / naturalHeight, 1);
+  scale = clamp(scale, 0.35, 1);
 
   const offsetX = (availableWidth - naturalWidth * scale) / 2;
-  const offsetY = (availableHeight - naturalHeight * scale) / 2;
+  const offsetY = Math.max((availableHeight - naturalHeight * scale) / 2, 0);
 
   bracket.style.setProperty("--bracket-scale", scale);
   bracket.style.setProperty("--bracket-x", `${offsetX}px`);
   bracket.style.setProperty("--bracket-y", `${offsetY}px`);
+
+  if (Number.isNaN(naturalWidth) || Number.isNaN(naturalHeight)) {
+    bracket.style.setProperty("--bracket-scale", prevScale);
+    bracket.style.setProperty("--bracket-x", prevX);
+    bracket.style.setProperty("--bracket-y", prevY);
+  }
 
   requestAnimationFrame(drawConnectors);
 }

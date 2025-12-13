@@ -519,8 +519,8 @@ input[type="number"] {
 #bracket-viewport {
   width: 100%;
   position: relative;
-  height: calc(100vh - var(--top-ui, 200px));
-  min-height: 360px;
+  height: auto;
+  min-height: 0;
   display: flex;
   align-items: flex-start;
   justify-content: center;
@@ -530,7 +530,6 @@ input[type="number"] {
 @media (max-width: 699px) {
   #bracket-viewport {
     height: calc(100svh - var(--top-ui, 140px));
-    min-height: 0;
   }
 }
 
@@ -541,12 +540,12 @@ input[type="number"] {
 .bracket-grid {
   position: relative;
   display: flex;
-  gap: 24px;
+  gap: clamp(16px, 2vw, 26px);
   align-items: flex-start;
   transform-origin: 50% 0%;
   inline-size: max-content;
   block-size: max-content;
-  padding: 12px;
+  padding: clamp(6px, 1vw, 14px);
   transform: translate3d(var(--bracket-x, 0px), var(--bracket-y, 0px), 0) scale(var(--bracket-scale, 1));
 }
 
@@ -560,7 +559,7 @@ input[type="number"] {
 
 .side {
   display: flex;
-  gap: 18px;
+  gap: clamp(12px, 1.6vw, 20px);
   align-items: flex-start;
   position: relative;
 }
@@ -570,10 +569,10 @@ input[type="number"] {
 }
 
 .round-col {
-  width: 220px;
+  width: clamp(190px, 18vw, 240px);
   position: relative;
   padding-top: 26px;
-  min-height: 640px;
+  min-height: 0;
 }
 
 .round-col .rt {
@@ -588,18 +587,18 @@ input[type="number"] {
 
 .center {
   position: relative;
-  width: 260px;
+  width: clamp(220px, 20vw, 260px);
   padding-top: 26px;
-  min-height: 640px;
+  min-height: 0;
   display: flex;
   align-items: flex-start;
   justify-content: flex-start;
 }
 
 .center .block {
-  width: 260px;
+  width: clamp(220px, 20vw, 260px);
   position: relative;
-  height: 640px;
+  height: auto;
 }
 
 .center .rt {
