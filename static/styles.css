@@ -509,29 +509,9 @@ input[type="number"] {
   justify-content: flex-start;
   overflow-x: auto;
   overflow-y: hidden;
-}
-
-@media (max-width: 699px) {
-  #bracket-viewport {
-    height: calc(100svh - var(--top-ui, 140px));
-  }
-}
-
-@media (max-width: 699px) {
-  /* evita gutters por centrado con max-content + scroll */
-  .bracket-grid {
-    margin: 0 !important;
-    --bracket-x: 0px !important;
-    --bracket-y: 0px !important;
-    --bracket-scale: 1 !important; /* más grande; el ancho extra se ve con scroll */
-  }
-
-  #bracket-viewport {
-    justify-content: flex-start;
-    padding: 0 10px;              /* un margen real, no “vacío” */
-    scroll-padding-left: 10px;
-    -webkit-overflow-scrolling: touch;
-  }
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  touch-action: pan-x pan-y;
 }
 
 .bracket-shell .card-header {
@@ -556,6 +536,29 @@ input[type="number"] {
     --bracket-x: 0px !important;
     --bracket-y: 0px !important;
     --bracket-scale: 1 !important;
+  }
+}
+
+@media (max-width: 699px) {
+  #bracket-viewport {
+    height: calc(100svh - var(--top-ui, 220px));
+    overflow-x: auto;
+    overflow-y: auto;
+    justify-content: flex-start;
+    padding: 0 10px;
+    scroll-padding-left: 10px;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+    touch-action: pan-x pan-y;
+  }
+}
+
+@media (max-width: 699px) {
+  .bracket-grid {
+    margin: 0 !important;
+    --bracket-x: 0px !important;
+    --bracket-y: 0px !important;
+    --bracket-scale: 1.08 !important;
   }
 }
 

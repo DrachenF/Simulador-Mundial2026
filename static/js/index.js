@@ -51,6 +51,7 @@ function setPhase(phase) {
     } else {
       fitBracket();
     }
+    requestAnimationFrame(updateEliminationTopUi);
   } else {
     groupTabsWrapper?.classList.remove("hidden");
   }
@@ -749,15 +750,27 @@ function clamp(value, min, max) {
   return Math.max(min, Math.min(value, max));
 }
 
-function updateTopUiOffset() {
-  const viewport = document.getElementById("bracket-viewport");
-  const elimPanel = document.querySelector('[data-phase-panel="elimination"]');
-  if (!viewport || !elimPanel || elimPanel.classList.contains("hidden")) return 0;
+function updateEliminationTopUi() {
+  const root = document.documentElement;
+  const isElim = document.body.classList.contains("phase-elimination");
+  if (!isElim) return;
 
-  const offset = viewport.getBoundingClientRect().top;
-  const value = Math.max(110, Math.round(offset + 8));
-  viewport.style.setProperty("--top-ui", `${value}px`);
-  return value;
+  const pageHeader = document.querySelector("header");
+  const elimPanel = document.querySelector('[data-phase-panel="elimination"]');
+  if (!elimPanel) return;
+
+  const elimHeader = elimPanel.querySelector(".elim-header");
+  const thirdsCard = elimPanel.querySelector(".thirds-card");
+  const footer = document.querySelector("#global-footer");
+
+  const h =
+    (pageHeader?.offsetHeight || 0) +
+    (elimHeader?.offsetHeight || 0) +
+    (thirdsCard?.offsetHeight || 0) +
+    (footer?.offsetHeight || 0) +
+    24;
+
+  root.style.setProperty("--top-ui", `${Math.max(180, Math.ceil(h))}px`);
 }
 
 function fitBracket() {
@@ -767,7 +780,7 @@ function fitBracket() {
 
   if (!viewport || !bracket || !elimPanel || elimPanel.classList.contains("hidden")) return;
 
-  updateTopUiOffset();
+  updateEliminationTopUi();
 
   const prevScale = bracket.style.getPropertyValue("--bracket-scale") || "1";
   const prevX = bracket.style.getPropertyValue("--bracket-x") || "0px";
@@ -809,6 +822,7 @@ function renderThirds(list) {
     empty.className = "muted";
     empty.textContent = "No se pudo calcular la lista de terceros.";
     thirdsGrid.appendChild(empty);
+    requestAnimationFrame(updateEliminationTopUi);
     return;
   }
 
@@ -818,6 +832,8 @@ function renderThirds(list) {
     chip.innerHTML = `<span class="rank">${index + 1}</span><span class="name">${item.pais}</span><span class="meta">${item.grupo} · ${item.pts} pts · DG ${item.DG} · GF ${item.GF}</span>`;
     thirdsGrid.appendChild(chip);
   });
+
+  requestAnimationFrame(updateEliminationTopUi);
 }
 
 function renderBracket(bracket) {
@@ -858,6 +874,7 @@ function renderBracket(bracket) {
     layoutSide(rightSide);
     placeCenterMatches();
     fitBracket();
+    requestAnimationFrame(updateEliminationTopUi);
   }
 }
 
@@ -938,15 +955,20 @@ bracketGrid?.addEventListener("input", (event) => {
 window.addEventListener("resize", () => {
   if (bracketLoaded) {
     fitBracket();
+    requestAnimationFrame(updateEliminationTopUi);
   }
 });
 window.addEventListener("orientationchange", () => {
   if (bracketLoaded) {
-    fitBracket();
+    setTimeout(() => {
+      fitBracket();
+      requestAnimationFrame(updateEliminationTopUi);
+    }, 150);
   }
 });
 detailPrevBtn?.addEventListener("click", () => cycleGroup(-1));
 detailNextBtn?.addEventListener("click", () => cycleGroup(1));
 resetGroupBtn?.addEventListener("click", resetGroup);
 
+requestAnimationFrame(updateEliminationTopUi);
 renderOverview();
