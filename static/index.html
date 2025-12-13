@@ -1,38 +1,884 @@
 <!doctype html>
 <html lang="es">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Fase de grupos | Simulador 2026</title>
-    <link rel="stylesheet" href="./styles.css" />
-  </head>
-  <body>
-    <div class="container">
-      <div class="hero">
-        <div class="hero-title">
-          <span class="pill">Mundial 2026</span>
-          <h1>Fase de grupos</h1>
-        </div>
-        <p class="subtitle">
-          Consulta y edita el desempeño de los 12 grupos con estadísticas en vivo desde
-          <strong>ResultadoGrupos.csv</strong> (o <strong>grupos.csv</strong> si es la primera carga).
-        </p>
-        <div class="cta-row">
-          <a class="button secondary" href="./index.html">Fase de grupos actual</a>
-          <a class="button" href="./eliminatoria.html">Eliminatoria</a>
+<head>
+  <meta charset="utf-8" />
+  <!-- IMPORTANTE: permitir zoom/pinch y evitar bloquearlo -->
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Mundial 2026</title>
+
+  <style>
+    :root{
+      color-scheme: dark;
+      --bg:#070a0f;
+      --card:rgba(18,22,31,.9);
+      --text:#e9edf5;
+      --muted:#a7b5c7;
+      --border:rgba(255,255,255,.10);
+      --accent:#5fe6c9;
+      --accent2:#6fa3ff;
+    }
+    *{box-sizing:border-box}
+body{
+  margin:0; min-height:100vh;
+  font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+  background:
+    radial-gradient(circle at 20% 20%, rgba(111,163,255,.10), transparent 35%),
+    radial-gradient(circle at 80% 10%, rgba(95,230,201,.10), transparent 35%),
+    var(--bg);
+  color:var(--text);
+
+  /* CLAVE: evita scroll horizontal del BODY, pero NO bloquea el scroll vertical */
+  overflow-x: hidden;
+}
+
+
+    .wrap{max-width:1100px;margin:0 auto;padding:16px}
+
+    header{
+      display:flex;align-items:center;justify-content:space-between;gap:12px;
+      padding:14px;
+      border:1px solid var(--border);
+      background:linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.02));
+      border-radius:16px;
+      position:sticky;top:0;z-index:50;
+      backdrop-filter: blur(10px);
+    }
+    h1{margin:0;font-size:18px;letter-spacing:.4px}
+    .pill{
+      font-size:12px;color:var(--muted);
+      border:1px solid var(--border);padding:6px 10px;border-radius:999px;
+      background:rgba(255,255,255,.03);
+      white-space:nowrap;
+    }
+
+    .tabs{margin-top:12px;display:flex;gap:10px;flex-wrap:wrap}
+    .tabbtn{
+      border:1px solid var(--border);
+      background:rgba(255,255,255,.03);
+      color:var(--text);
+      padding:10px 12px;
+      border-radius:14px;
+      cursor:pointer;
+      user-select:none;
+      font-weight:600;
+      letter-spacing:.2px;
+      flex:0 0 auto;
+    }
+    .tabbtn[aria-selected="true"]{
+      border-color:rgba(95,230,201,.35);
+      background:linear-gradient(180deg, rgba(95,230,201,.14), rgba(111,163,255,.10));
+      box-shadow:0 0 0 1px rgba(95,230,201,.15) inset;
+    }
+    .tabbtn:focus{outline:2px solid rgba(111,163,255,.6);outline-offset:2px}
+
+    .card{
+      margin-top:12px;
+      border:1px solid var(--border);
+      background:var(--card);
+      border-radius:16px;
+      padding:14px;
+      box-shadow:0 12px 28px rgba(0,0,0,.28);
+    }
+
+    .groupbar{
+      display:flex;flex-wrap:wrap;gap:8px;
+      border-top:1px solid var(--border);
+      padding-top:12px;
+      margin-top:12px;
+    }
+    .gbtn{
+      width:42px;height:38px;
+      display:inline-flex;align-items:center;justify-content:center;
+      border:1px solid var(--border);
+      border-radius:12px;
+      background:rgba(255,255,255,.03);
+      color:var(--text);
+      cursor:pointer;
+      font-weight:800;
+      text-transform:uppercase;
+    }
+    .gbtn[aria-selected="true"]{
+      border-color:rgba(111,163,255,.45);
+      background:linear-gradient(180deg, rgba(111,163,255,.16), rgba(95,230,201,.08));
+      box-shadow:0 0 0 1px rgba(111,163,255,.18) inset;
+    }
+
+    .titleRow{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+    .subtitle{margin:0;color:var(--muted);font-size:13px}
+    .sectionTitle{margin:0;font-size:16px}
+
+    .tableWrap{
+      margin-top:12px;
+      border:1px solid var(--border);
+      border-radius:14px;
+      overflow:hidden;
+      background:rgba(255,255,255,.02);
+    }
+    .scrollX{overflow:auto;-webkit-overflow-scrolling:touch}
+    table{width:100%;border-collapse:collapse;min-width:720px}
+    thead th{
+      text-align:left;font-size:12px;color:var(--muted);
+      background:rgba(255,255,255,.04);
+      padding:12px 10px;
+      border-bottom:1px solid var(--border);
+      position:sticky;top:0;
+    }
+    tbody td{
+      padding:12px 10px;
+      border-bottom:1px solid rgba(255,255,255,.06);
+      font-size:13px;
+    }
+    tbody tr:hover{background:rgba(255,255,255,.03)}
+    td.num, th.num{ text-align:right; font-variant-numeric: tabular-nums; }
+    td.team{ font-weight:700; }
+
+    /* TABLAS view */
+    .grid{
+      margin-top:12px;
+      display:grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap:12px;
+    }
+    .mini{padding:12px}
+    .mini .tableWrap{margin-top:10px}
+    .mini table{min-width:560px}
+    .mini .sectionTitle{font-size:15px}
+    .mini .subtitle{font-size:12px}
+    .mini thead th, .mini tbody td{padding:10px 10px}
+
+    /* ===== Fixtures (solo diseño) ===== */
+    .contentBox{
+      margin-top:12px;
+      border:1px dashed rgba(255,255,255,.18);
+      border-radius:14px;
+      padding:12px;
+      background:rgba(255,255,255,.02);
+    }
+    .mdTitle{
+      margin:0 0 10px 0;
+      font-size:12px;
+      letter-spacing:.35px;
+      color:var(--muted);
+      text-transform:uppercase;
+    }
+    .fixtures{
+      display:flex;
+      flex-direction:column;
+      gap:10px;
+    }
+    .fixtureRow{
+      display:grid;
+      grid-template-columns: minmax(0,1fr) auto minmax(0,1fr);
+      align-items:center;
+      gap:10px;
+      padding:10px 10px;
+      border:1px solid rgba(255,255,255,.08);
+      border-radius:12px;
+      background:rgba(0,0,0,.12);
+    }
+    .teamName{
+      min-width:0;
+      font-weight:700;
+      color:var(--text);
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+    .teamName.right{ text-align:right; }
+    .score{
+      display:flex;
+      align-items:center;
+      gap:8px;
+      flex:0 0 auto;
+    }
+    .box{
+      width:34px;height:28px;
+      border-radius:8px;
+      border:1px solid rgba(255,255,255,.18);
+      background:rgba(255,255,255,.03);
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      color:rgba(233,237,245,.55);
+      font-weight:800;
+      font-variant-numeric: tabular-nums;
+      user-select:none;
+    }
+    .dash{
+      color:rgba(255,255,255,.35);
+      font-weight:800;
+      user-select:none;
+    }
+
+    /* =========================
+       ELIMINATORIA (FULL BLEED + SCROLL)
+       - Sin “márgenes” laterales: ocupa todo el ancho de la pantalla.
+       - Scroll (x/y) para ver todo el bracket.
+       - Permite pinch-zoom (no bloqueamos touch)
+    ========================== */
+    .koCard{
+      background:transparent;
+      border:none;
+      box-shadow:none;
+      padding:0;
+    }
+    .koHead{
+      padding:14px;
+      border:1px solid var(--border);
+      background:var(--card);
+      border-radius:16px;
+      box-shadow:0 12px 28px rgba(0,0,0,.28);
+      margin-top:12px;
+    }
+.koViewport{
+  /* full-bleed */
+  width:100vw;
+  margin-left:calc(50% - 50vw);
+  margin-right:calc(50% - 50vw);
+
+  margin-top:12px;
+  border-top:1px solid rgba(255,255,255,.08);
+
+  /* SCROLL REAL (x/y) */
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+
+  /* IMPORTANTÍSIMO: que tenga altura utilizable para que exista scroll vertical */
+  max-height: calc(100vh - 220px);
+
+  /* no bloquear pinch */
+  touch-action: pan-x pan-y;
+
+  background:transparent;
+
+  /* espacio prudente abajo */
+  padding-bottom:22px;
+}
+
+/* Evita doble scrollbar: el scroll lo hace solo .koViewport */
+#koBracket{ overflow: visible; }
+#koViewport{ scrollbar-gutter: stable both-edges; }
+
+
+    :root{
+      --koPanel: rgba(18,22,31,.92);
+      --koLine: rgba(255,255,255,.25);
+      --koMatchH: 64px;
+      --koRoundW: 220px;
+      --koGap: 18px;
+      --koRadius: 10px;
+    }
+
+    .bracket{
+  position:relative;
+  display:flex;
+  gap:26px;
+  align-items:flex-start;
+
+  padding:18px;
+padding-right: clamp(48px, 6vw, 120px);
+
+
+  transform-origin: top left;
+  min-width: 1320px;
+  min-height: 760px;
+}
+
+svg.lines{
+  position:absolute;
+  top:0;
+  left:0;
+  pointer-events:none;
+  overflow:visible;
+}
+
+    .side{
+      display:flex;
+      gap:18px;
+      align-items:flex-start;
+      position:relative;
+    }
+    .round{
+      width:var(--koRoundW);
+      position:relative;
+      padding-top:26px;
+      min-height: 720px;
+    }
+    .round .rt{
+      position:absolute; top:0; left:0;
+      font-size:12px;
+      color:var(--muted);
+      letter-spacing:.8px;
+      text-transform:uppercase;
+    }
+    .match{
+      position:absolute;
+      width:100%;
+      height:var(--koMatchH);
+      background:var(--koPanel);
+      border:1px solid var(--border);
+      border-radius:var(--koRadius);
+      overflow:hidden;
+      box-shadow:0 12px 30px rgba(0,0,0,.25);
+    }
+    .mteam{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      height:50%;
+      padding:10px 12px;
+      border-bottom:1px solid rgba(255,255,255,.06);
+      font-size:13px;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+    .mteam:last-child{ border-bottom:none; }
+    .pick{
+      width:14px; height:14px;
+      border-radius:50%;
+      border:1px solid rgba(255,255,255,.22);
+      flex:0 0 auto;
+      margin-left:10px;
+      opacity:.9;
+    }
+    .center{
+      position:relative;
+      width:280px;
+      padding-top:26px;
+      min-height:720px;
+      display:flex;
+      align-items:flex-start;
+      justify-content:flex-start;
+    }
+    .center .block{
+      width:280px;
+      position:relative;
+      height:720px;
+    }
+    .center .rt{
+      position:absolute;
+      left:0;
+      font-size:12px;
+      color:var(--muted);
+      letter-spacing:.8px;
+      text-transform:uppercase;
+    }
+/* El lado derecho sí debe estar en espejo, pero con FLEX (no con transform) */
+.mirror{ flex-direction:row-reverse; }
+
+/* Asegura que no haya transforms que rompan el cálculo de líneas */
+#koRightSide{ transform:none; }
+#koRightSide .round,
+#koRightSide .match,
+#koRightSide .rt,
+#koRightSide .mteam{ transform:none; }
+
+
+
+    /* Texto y cajas del KO: más compactas en móvil */
+    @media (max-width:520px){
+      header{border-radius:14px}
+      .tabbtn{flex:1}
+      .pill{display:none}
+      .card{padding:12px}
+      .gbtn{width:40px}
+      .teamName{min-width:90px}
+      .box{width:32px}
+      .koHead{border-radius:14px}
+      .bracket{padding:14px; min-width: 1220px;}
+      :root{
+        --koMatchH: 58px;
+        --koRoundW: 210px;
+        --koGap: 16px;
+      }
+      .mteam{padding:9px 10px;font-size:12.5px}
+    }
+    @media (max-width:420px){
+      .fixtureRow{gap:8px}
+      .teamName{font-size:15px}
+      .box{width:30px;height:26px}
+      .bracket{min-width: 1180px;}
+      :root{
+        --koMatchH: 56px;
+        --koRoundW: 205px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="wrap">
+    <header>
+      <h1>Mundial 2026</h1>
+      <div class="pill" id="statusPill">Fase: Grupos · Grupo A</div>
+    </header>
+
+    <nav class="tabs" role="tablist" aria-label="Fases">
+      <button class="tabbtn" id="tab-groups" role="tab" aria-selected="true" aria-controls="panel-groups">Fase de grupos</button>
+      <button class="tabbtn" id="tab-tables" role="tab" aria-selected="false" aria-controls="panel-tables">Tablas</button>
+      <button class="tabbtn" id="tab-ko" role="tab" aria-selected="false" aria-controls="panel-ko">Eliminatoria</button>
+    </nav>
+
+    <!-- Panel: Fase de grupos -->
+    <section class="card" id="panel-groups" role="tabpanel" aria-labelledby="tab-groups">
+      <div class="titleRow">
+        <h2 class="sectionTitle" id="groupHeading">Grupo A</h2>
+        <p class="subtitle">Selecciona un grupo y revisa la tabla de posiciones.</p>
+      </div>
+
+      <div class="groupbar" role="tablist" aria-label="Grupos"></div>
+
+      <div class="tableWrap">
+        <div class="scrollX" aria-label="Tabla de grupo">
+          <table>
+            <thead>
+              <tr>
+                <th>País</th>
+                <th class="num">PJ</th>
+                <th class="num">G</th>
+                <th class="num">E</th>
+                <th class="num">P</th>
+                <th class="num">GF</th>
+                <th class="num">GC</th>
+                <th class="num">DG</th>
+                <th class="num">PTS</th>
+              </tr>
+            </thead>
+            <tbody id="groupBody"></tbody>
+          </table>
         </div>
       </div>
 
-      <header>
-        <p class="subtitle">Grupos disponibles</p>
-        <div style="display: flex; gap: 10px; align-items: center;">
-          <span class="pill" id="status-pill">Listo para sincronizar</span>
-          <button class="button" id="refresh">Reiniciar</button>
+      <!-- CONTENIDO (solo diseño): Jornadas 1-3 -->
+      <div class="contentBox" id="groupContent"></div>
+    </section>
+
+    <!-- Panel: Tablas -->
+    <section class="card" id="panel-tables" role="tabpanel" aria-labelledby="tab-tables" hidden>
+      <div class="titleRow">
+        <h2 class="sectionTitle">Tablas (Grupos A–L)</h2>
+        <p class="subtitle">Vista completa de las 12 tablas y los mejores 8 terceros.</p>
+      </div>
+
+      <div class="grid" id="allTablesGrid"></div>
+
+      <div class="card" style="margin-top:12px">
+        <div class="titleRow">
+          <h3 class="sectionTitle">Mejores 8 terceros</h3>
+          <p class="subtitle">Ordenado de mejor a peor (PTS, DG, GF).</p>
         </div>
-      </header>
-      <section class="grid" id="groups"></section>
-    </div>
-    <footer>Interfaz renovada para gestionar grupos A-L · 2026</footer>
-    <script src="./js/index.js" type="module"></script>
-  </body>
+
+        <div class="tableWrap">
+          <div class="scrollX" aria-label="Mejores terceros">
+            <table>
+              <thead>
+                <tr>
+                  <th class="num">#</th>
+                  <th>Grupo</th>
+                  <th>País</th>
+                  <th class="num">PJ</th>
+                  <th class="num">G</th>
+                  <th class="num">E</th>
+                  <th class="num">P</th>
+                  <th class="num">GF</th>
+                  <th class="num">GC</th>
+                  <th class="num">DG</th>
+                  <th class="num">PTS</th>
+                </tr>
+              </thead>
+              <tbody id="bestThirdsBody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="contentBox" style="margin-top:10px">
+          Nota: esto es diseño. Luego puedes cambiar criterios (fair play, etc.).
+        </div>
+      </div>
+    </section>
+
+    <!-- Panel: Eliminatoria -->
+    <section class="koCard" id="panel-ko" role="tabpanel" aria-labelledby="tab-ko" hidden>
+      <div class="koHead">
+        <div class="titleRow">
+          <h2 class="sectionTitle">Eliminatoria</h2>
+          <p class="subtitle">Usa scroll para ver todo (móvil/PC). El zoom/pinch no está bloqueado.</p>
+        </div>
+      </div>
+
+      <!-- FULL BLEED + SCROLL -->
+      <div class="koViewport" id="koViewport" aria-label="Bracket eliminatoria (scroll)">
+        <div class="bracket" id="koBracket">
+          <svg class="lines" id="koLines"></svg>
+          <div class="side" id="koLeftSide"></div>
+          <div class="center" id="koCenter"></div>
+          <div class="side mirror" id="koRightSide"></div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    const tabGroups = document.getElementById("tab-groups");
+    const tabTables = document.getElementById("tab-tables");
+    const tabKO = document.getElementById("tab-ko");
+    const panelGroups = document.getElementById("panel-groups");
+    const panelTables = document.getElementById("panel-tables");
+    const panelKO = document.getElementById("panel-ko");
+    const statusPill = document.getElementById("statusPill");
+    const groupBar = document.querySelector(".groupbar");
+    const groupHeading = document.getElementById("groupHeading");
+    const groupBody = document.getElementById("groupBody");
+    const groupContent = document.getElementById("groupContent");
+    const allTablesGrid = document.getElementById("allTablesGrid");
+    const bestThirdsBody = document.getElementById("bestThirdsBody");
+
+    const defaultGroups = {
+      A: ["México", "Sudáfrica", "República de Corea", "Dinamarca"],
+      B: ["Canadá", "Italia", "Qatar", "Suiza"],
+      C: ["Brasil", "Marruecos", "Haití", "Japón"],
+      D: ["Estados Unidos", "Paraguay", "Australia", "Turquía"],
+      E: ["Alemania", "Curazao", "Costa de Marfil", "Ecuador"],
+      F: ["Países Bajos", "Japón", "Polonia", "Túnez"],
+      G: ["Bélgica", "Egipto", "Irán", "Nueva Zelanda"],
+      H: ["España", "Cabo Verde", "Arabia Saudita", "Uruguay"],
+      I: ["Francia", "Senegal", "Bolivia", "Noruega"],
+      J: ["Argentina", "Argelia", "Austria", "Jordania"],
+      K: ["Portugal", "Jamaica", "Uzbekistán", "Colombia"],
+      L: ["Inglaterra", "Croacia", "Ghana", "Panamá"],
+    };
+
+    const state = { stage: "groups", order: [], group: null, baseStats: {}, matches: {} };
+
+    const emptyRow = (team) => ({ team, pj: 0, w: 0, d: 0, l: 0, gf: 0, gc: 0, DG: 0, pts: 0 });
+    const clampScore = (v) => {
+      if (v === "" || v === null || v === undefined) return null;
+      const n = Number(v);
+      return Number.isFinite(n) && n >= 0 ? n : null;
+    };
+    const escapeHtml = (s) => s.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
+
+    async function fetchCsv() {
+      const opciones = ["/grupos.csv", "grupos.csv", "../grupos.csv", "/ResultadoGrupos.csv"]; 
+      for (const url of opciones) {
+        try {
+          const res = await fetch(url);
+          if (!res.ok) continue;
+          return await res.text();
+        } catch (_) { continue; }
+      }
+      return null;
+    }
+
+    function parseCsv(texto) {
+      const lineas = texto.trim().split(/\r?\n/);
+      lineas.shift();
+      const grupos = {};
+      lineas.forEach((linea) => {
+        if (!linea.trim()) return;
+        const cols = linea.split(",");
+        if (cols.length < 10) return;
+        const [g, pais, pj, w, d, l, GF, GC, DG, pts] = cols;
+        const grupo = g.trim().toUpperCase();
+        grupos[grupo] = grupos[grupo] || [];
+        grupos[grupo].push({ team: pais.trim(), pj: +pj || 0, w: +w || 0, d: +d || 0, l: +l || 0, gf: +GF || 0, gc: +GC || 0, DG: +DG || 0, pts: +pts || 0 });
+      });
+      return grupos;
+    }
+
+    function loadDefaults() {
+      state.baseStats = {};
+      state.order.forEach((g) => (state.baseStats[g] = defaultGroups[g].map((t) => emptyRow(t))));
+        const [t1, t2, t3, t4] = teams;
+        state.matches[g] = [
+          { jornada: 1, partidos: [{ equipo1: t1, equipo2: t2 }, { equipo1: t3, equipo2: t4 }] },
+          { jornada: 2, partidos: [{ equipo1: t1, equipo2: t3 }, { equipo1: t2, equipo2: t4 }] },
+          { jornada: 3, partidos: [{ equipo1: t1, equipo2: t4 }, { equipo1: t2, equipo2: t3 }] },
+        ].map((j) => ({ ...j, partidos: j.partidos.map((p) => ({ ...p, goles1: null, goles2: null })) }));
+    function sortStandings(rows) {
+      return [...rows].sort((a, b) => {
+        if (b.pts !== a.pts) return b.pts - a.pts;
+        if (b.DG !== a.DG) return b.DG - a.DG;
+        if (b.gf !== a.gf) return b.gf - a.gf;
+        return a.team.localeCompare(b.team, "es");
+      });
+      const completos = matches.flatMap((j) => j.partidos).filter((p) => p.goles1 !== null && p.goles2 !== null);
+      const tabla = new Map(base.map((t) => [t.team, { ...emptyRow(t.team) }]));
+        e1.pj += 1; e2.pj += 1;
+        e1.gf += g1; e1.gc += g2;
+        e2.gf += g2; e2.gc += g1;
+        if (g1 > g2) { e1.w++; e2.l++; } else if (g2 > g1) { e2.w++; e1.l++; } else { e1.d++; e2.d++; }
+      const lista = [...tabla.values()].map((t) => ({ ...t, DG: t.gf - t.gc, pts: t.w * 3 + t.d }));
+      return sortStandings(lista);
+      state.order.forEach((g) => (mapa[g] = computeStandings(g)));
+        const btn = document.createElement("button");
+        btn.className = "gbtn";
+        btn.type = "button";
+        btn.textContent = g;
+        btn.setAttribute("role", "tab");
+        btn.setAttribute("aria-selected", String(state.group === g));
+        btn.addEventListener("click", () => { state.group = g; renderAll(); });
+        groupBar.appendChild(btn);
+
+      const html = jornadas
+        .map((j, jIdx) => {
+          const rows = j.partidos
+            .map((p, pIdx) => {
+                <div class="fixtureRow" data-group="${state.group}" data-jornada="${jIdx}" data-match="${pIdx}">
+                    <input class="box" type="number" min="0" data-field="g1" value="${g1}" />
+                    <input class="box" type="number" min="0" data-field="g2" value="${g2}" />
+          return `<div class="mdTitle">Jornada ${j.jornada}</div><div class="fixtures">${rows}</div>`;
+      groupContent.innerHTML = html;
+    }
+    function renderGroupTable() {
+      const rows = computeStandings(state.group);
+      groupHeading.textContent = `Grupo ${state.group}`;
+      groupBody.innerHTML = rows
+        .map((r) => `
+          <tr>
+            <td class="team">${escapeHtml(r.team)}</td>
+            <td class="num">${r.pj}</td>
+            <td class="num">${r.w}</td>
+            <td class="num">${r.d}</td>
+            <td class="num">${r.l}</td>
+            <td class="num">${r.gf}</td>
+            <td class="num">${r.gc}</td>
+            <td class="num">${r.DG}</td>
+            <td class="num">${r.pts}</td>
+          </tr>`)
+        .join("");
+      renderGroupFixtures();
+                <thead><tr><th>País</th><th class="num">PJ</th><th class="num">G</th><th class="num">E</th><th class="num">P</th><th class="num">GF</th><th class="num">GC</th><th class="num">DG</th><th class="num">PTS</th></tr></thead>
+                <tbody>${rows.map((r) => `
+                  <tr><td class="team">${escapeHtml(r.team)}</td><td class="num">${r.pj}</td><td class="num">${r.w}</td><td class="num">${r.d}</td><td class="num">${r.l}</td><td class="num">${r.gf}</td><td class="num">${r.gc}</td><td class="num">${r.DG}</td><td class="num">${r.pts}</td></tr>
+                `).join("")}</tbody>
+          </div>`;
+          const rows = mapa[g] || [];
+          const t = rows[2];
+          return t ? { ...t, group: g } : null;
+      bestThirdsBody.innerHTML = thirds.slice(0, 8).map((r, idx) => `
+          <td class="num">${r.DG}</td>
+        </tr>
+      `).join("");
+    }
+
+    function renderKO() {
+      const koLeftSide = document.getElementById("koLeftSide");
+      const koRightSide = document.getElementById("koRightSide");
+      const koCenter = document.getElementById("koCenter");
+      const koLines = document.getElementById("koLines");
+
+      const teamsLeft = ["HAITÍ","FRANCIA","A. SAUDITA","SUDÁFRICA","UEFA 1","P. BAJOS","MARRUECOS","FIFA 1","CROACIA","ESPAÑA","ARGELIA","E. UNIDOS","FIFA 2","BRASIL","URUGUAY","COLOMBIA"];
+      const teamsRight = ["JAPÓN","CURAZAO","SENEGAL","MÉXICO","C. DE MARFIL","INGLATERRA","UZBEKISTÁN","ARGENTINA","C. VERDE","AUSTRALIA","EGIPTO","CANADÁ","AUSTRIA","ITALIA","ALEMANIA","PORTUGAL"];
+
+      const el = (t, a={}, c=[]) => {
+        const n = document.createElement(t);
+        Object.entries(a).forEach(([k,v])=>{ if(k==='class') n.className=v; else if(k==='text') n.textContent=v; else n.setAttribute(k,v);});
+        c.forEach((h)=>n.appendChild(h));
+        return n;
+      };
+      const matchNode = ({id,teamA="—",teamB="—",next=""}) => {
+        const m = el("div",{class:"match","data-id":id,"data-next":next});
+        m.appendChild(el("div",{class:"mteam",title:teamA},[document.createTextNode(teamA), el("span",{class:"pick"})]));
+        m.appendChild(el("div",{class:"mteam",title:teamB},[document.createTextNode(teamB), el("span",{class:"pick"})]));
+        return m;
+      };
+      const roundNode = (t) => { const r=el("div",{class:"round"}); r.appendChild(el("div",{class:"rt",text:t})); return r; };
+      const place = (round, match, top)=>{ match.style.top=`${top}px`; round.appendChild(match); };
+      const svgLine=(svg,x1,y1,x2,y2)=>{ const p=document.createElementNS("http://www.w3.org/2000/svg","path"); const mid=(x1+x2)/2; p.setAttribute("d",`M ${x1} ${y1} L ${mid} ${y1} L ${mid} ${y2} L ${x2} ${y2}`); p.setAttribute("fill","none"); p.setAttribute("stroke","rgba(255,255,255,.25)"); p.setAttribute("stroke-width","2"); p.setAttribute("stroke-linecap","round"); svg.appendChild(p); };
+
+      koLeftSide.innerHTML = koRightSide.innerHTML = koCenter.innerHTML = koLines.innerHTML = "";
+
+      const L16=roundNode("16VOS"),L8=roundNode("8VOS"),L4=roundNode("4TOS"),LS=roundNode("SEMI");
+      const R16=roundNode("16VOS"),R8=roundNode("8VOS"),R4=roundNode("4TOS"),RS=roundNode("SEMI");
+      const MH=parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--koMatchH"))||64;
+      const G=parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--koGap"))||18;
+      const top0=14, step16=MH+G;
+      for(let i=0;i<8;i++){ const a=teamsLeft[i*2]??"—"; const b=teamsLeft[i*2+1]??"—"; const m=matchNode({id:`L16_${i+1}`}); m.querySelectorAll(".mteam")[0].childNodes[0].nodeValue=a; m.querySelectorAll(".mteam")[1].childNodes[0].nodeValue=b; place(L16,m,top0+i*step16);} 
+      for(let i=0;i<8;i++){ const a=teamsRight[i*2]??"—"; const b=teamsRight[i*2+1]??"—"; const m=matchNode({id:`R16_${i+1}`}); m.querySelectorAll(".mteam")[0].childNodes[0].nodeValue=a; m.querySelectorAll(".mteam")[1].childNodes[0].nodeValue=b; place(R16,m,top0+i*step16);} 
+      const step8=step16*2, off8=top0+MH/2+G/2-MH/2;
+      for(let i=0;i<4;i++){ place(L8,matchNode({id:`L8_${i+1}`}),off8+i*step8); place(R8,matchNode({id:`R8_${i+1}`}),off8+i*step8); }
+      const step4=step8*2, off4=off8+MH/2+G/2;
+      for(let i=0;i<2;i++){ place(L4,matchNode({id:`L4_${i+1}`}),off4+i*step4); place(R4,matchNode({id:`R4_${i+1}`}),off4+i*step4); }
+      const offS=off4+MH/2+G/2; place(LS,matchNode({id:"LS_1"}),offS); place(RS,matchNode({id:"RS_1"}),offS);
+      koLeftSide.append(L16,L8,L4,LS); koRightSide.append(R16,R8,R4,RS);
+      const center=el("div",{class:"block"});
+      const rtF=el("div",{class:"rt",text:"FINAL"}); rtF.style.top="0px"; center.appendChild(rtF);
+      const rt3=el("div",{class:"rt",text:"TERCER LUGAR"}); rt3.style.top="250px"; center.appendChild(rt3);
+      const final=matchNode({id:"F",teamA:"—",teamB:"—"}); final.style.width="260px"; final.style.left="0px"; final.style.top="34px"; center.appendChild(final);
+      const third=matchNode({id:"T3",teamA:"—",teamB:"—"}); third.style.width="260px"; third.style.left="0px"; third.style.top="284px"; center.appendChild(third);
+      koCenter.appendChild(center);
+
+      requestAnimationFrame(()=>{
+        const bracket=document.getElementById("koBracket");
+        const rect=bracket.getBoundingClientRect();
+        koLines.setAttribute("viewBox",`0 0 ${rect.width} ${rect.height}`);
+        koLines.setAttribute("width",rect.width); koLines.setAttribute("height",rect.height);
+        const byId={}; bracket.querySelectorAll(".match").forEach((n)=>byId[n.dataset.id]=n);
+        const midR=(el)=>{const r=el.getBoundingClientRect(),b=bracket.getBoundingClientRect();return{ x:r.right-b.left,y:r.top-b.top+r.height/2 }};
+        const midL=(el)=>{const r=el.getBoundingClientRect(),b=bracket.getBoundingClientRect();return{ x:r.left-b.left,y:r.top-b.top+r.height/2 }};
+        for(let i=0;i<8;i++){const f=byId[`L16_${i+1}`],t=byId[`L8_${Math.floor(i/2)+1}`]; if(f&&t){const a=midR(f),b=midL(t); svgLine(koLines,a.x,a.y,b.x,b.y);} }
+        for(let i=0;i<4;i++){const f=byId[`L8_${i+1}`],t=byId[`L4_${Math.floor(i/2)+1}`]; if(f&&t){const a=midR(f),b=midL(t); svgLine(koLines,a.x,a.y,b.x,b.y);} }
+        for(let i=0;i<2;i++){const f=byId[`L4_${i+1}`],t=byId["LS_1"]; if(f&&t){const a=midR(f),b=midL(t); svgLine(koLines,a.x,a.y,b.x,b.y);} }
+        for(let i=0;i<8;i++){const f=byId[`R16_${i+1}`],t=byId[`R8_${Math.floor(i/2)+1}`]; if(f&&t){const a=midL(f),b=midR(t); svgLine(koLines,a.x,a.y,b.x,b.y);} }
+        for(let i=0;i<4;i++){const f=byId[`R8_${i+1}`],t=byId[`R4_${Math.floor(i/2)+1}`]; if(f&&t){const a=midL(f),b=midR(t); svgLine(koLines,a.x,a.y,b.x,b.y);} }
+        for(let i=0;i<2;i++){const f=byId[`R4_${i+1}`],t=byId["RS_1"]; if(f&&t){const a=midL(f),b=midR(t); svgLine(koLines,a.x,a.y,b.x,b.y);} }
+        const finalM=byId["F"], ls=byId["LS_1"], rs=byId["RS_1"];
+        if(finalM&&ls){const a=midR(ls),b=midL(finalM); svgLine(koLines,a.x,a.y,b.x,b.y);} if(finalM&&rs){const a=midL(rs),b=midR(finalM); svgLine(koLines,a.x,a.y,b.x,b.y);} 
+      });
+    function renderAll(){
+      if(state.stage==='groups') renderGroupTable();
+      if(state.stage==='tables') renderAllTables();
+      if(state.stage==='ko') renderKO();
+    }
+
+    tabGroups.addEventListener("click",()=>{state.stage="groups";renderAll();});
+    tabTables.addEventListener("click",()=>{state.stage="tables";renderAll();});
+    tabKO.addEventListener("click",()=>{state.stage="ko";renderAll();});
+    groupContent.addEventListener("input",(e)=>{
+      const input=e.target; if(!input.matches("input[type='number']")) return;
+      const row=input.closest(".fixtureRow"); if(!row) return;
+      const g=row.dataset.group; const j=Number(row.dataset.jornada); const m=Number(row.dataset.match);
+      const match=state.matches[g]?.[j]?.partidos?.[m]; if(!match) return;
+      const field=input.dataset.field==='g2'? 'goles2':'goles1';
+      match[field]=clampScore(input.value);
+      if(match.goles1!==null && match.goles2!==null){
+        if(g===state.group) renderGroupTable();
+    (async function init(){
+      try{
+        const texto=await fetchCsv();
+        if(texto){
+          const grupos=parseCsv(texto);
+          const orden=Object.keys(grupos).sort();
+          if(orden.length){
+            state.order=orden;
+            state.baseStats={};
+            orden.forEach((g)=>state.baseStats[g]=grupos[g]);
+          }else{ loadDefaults(); }
+        }else{ loadDefaults(); }
+      }catch(err){ console.error(err); loadDefaults(); }
+                    )
+                    .join("")}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        `;
+        allTablesGrid.appendChild(card);
+      });
+
+      renderBestThirds(mapa);
+    }
+
+    function renderBestThirds(mapa) {
+      const thirds = state.order
+        .map((g) => {
+          const ordered = mapa[g] || [];
+          const third = ordered[2];
+          return third ? { group: g, ...third } : null;
+        })
+        .filter(Boolean)
+        .sort((a, b) => {
+          if (b.pts !== a.pts) return b.pts - a.pts;
+          if (b.DG !== a.DG) return b.DG - a.DG;
+          if (b.gf !== a.gf) return b.gf - a.gf;
+          return a.group.localeCompare(b.group);
+        });
+
+      const top8 = thirds.slice(0, 8);
+      bestThirdsBody.innerHTML = top8
+        .map(
+          (r, idx) => `
+        <tr>
+          <td class="num">${idx + 1}</td>
+          <td class="team">${escapeHtml(r.group)}</td>
+          <td class="team">${escapeHtml(r.team)}</td>
+      match[field] = clampScore(input.value);
+
+      const texto = await fetchCsvText();
+      if (texto) {
+        try {
+          parseCsvIntoState(texto);
+        } catch (err) {
+          console.error("Fallo al leer CSV", err);
+          loadDefaults();
+        }
+      } else {
+        loadDefaults();
+      bootstrapFixtures();
+      if (!row) return;
+      const g = row.dataset.group;
+      const jornadaIdx = Number(row.dataset.jornada);
+      const matchIdx = Number(row.dataset.match);
+      const match = state.matches[g]?.[jornadaIdx]?.partidos?.[matchIdx];
+      if (!match) return;
+
+      const field = input.dataset.field === "g2" ? "goles2" : "goles1";
+      const otherField = field === "goles1" ? "goles2" : "goles1";
+
+      const val = clampNumber(input.value);
+      match[field] = val;
+
+      const otherVal = clampNumber(match[otherField]);
+      if (val === null || otherVal === null) {
+        match[field] = val;
+      }
+
+      if (g === state.group) {
+        renderGroupTable();
+      }
+      renderAllTables();
+    }
+
+      try {
+        const texto = await fetchCsvText();
+        if (texto) {
+          try {
+            parseCsvIntoState(texto);
+          } catch (err) {
+            console.error("Fallo al leer CSV", err);
+            loadDefaults();
+          }
+        } else {
+      } catch (err) {
+        console.error("Error al cargar CSV", err);
+
+      ensureStateHasGroups();
+      if (state.stage === "tables") {
+        renderAllTables();
+      }
+      if (state.stage === "ko") {
+        // Vista KO permanece de muestra
+      }
+    }
+
+    // ====== Init ======
+    tabGroups.addEventListener("click", () => {
+      state.stage = "groups";
+      renderAll();
+    });
+    tabTables.addEventListener("click", () => {
+      state.stage = "tables";
+      renderAll();
+    });
+    tabKO.addEventListener("click", () => {
+      state.stage = "ko";
+      renderAll();
+    });
+
+    groupContent.addEventListener("input", handleFixtureInput);
+
+    (async function init() {
+      try {
+        await loadFromCsv();
+      } catch (err) {
+        console.error("Fallo al cargar CSV", err);
+        fallbackFromDefaults();
+      }
+      renderAll();
+    })();
+  </script>
+
+</body>
 </html>

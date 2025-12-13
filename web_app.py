@@ -13,9 +13,11 @@ import csv
 import json
 import os
 from functools import partial
+from http.cookies import SimpleCookie
 from http import HTTPStatus
 from http.server import ThreadingHTTPServer, SimpleHTTPRequestHandler
 from pathlib import Path
+import secrets
 from typing import Dict, List, Tuple, Optional
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -25,7 +27,9 @@ RESULTADO_CSV = BASE_DIR / "ResultadoGrupos.csv"
 PARTIDOS_JSON = BASE_DIR / "partidos.json"
 COMBINACIONES_CSV = BASE_DIR / "Combinaciones.csv"
 LLAVES_CSV = BASE_DIR / "LLaves16.csv"
-LLAVES_STATE = BASE_DIR / "llaves_state.json"
+
+# Estado por sesión (cada visitante tiene su propio simulador en memoria)
+SESSION_STORE: Dict[str, dict] = {}
 
 CSV_FIELDS = [
     "grupo",
@@ -47,20 +51,26 @@ def _leer_csv_activo() -> Path:
     return RESULTADO_CSV if RESULTADO_CSV.exists() else GRUPOS_CSV
 
 
+def _bootstrap_session() -> dict:
+    """Crea el estado inicial de una sesión de simulador en memoria."""
+
+    grupos_base = cargar_grupos()
+    partidos = {g: _calendario_base(g, [e["pais"] for e in equipos]) for g, equipos in grupos_base.items()}
+
+    return {
+        "grupos": {g: recalcular_grupo(eq, mantener_orden=True) for g, eq in grupos_base.items()},
+        "partidos": partidos,
+        "bracket": None,
+        "semilla": grupos_base,
+        "combination_cache": {},
+        "combination_dirty": True,
+    }
+
+
 def _reset_bracket_state_if_needed() -> bool:
-    """Elimina el estado de llaves si existe alguno guardado.
+    """Mantiene compatibilidad, pero sin limpiar archivos persistentes."""
 
-    Devuelve ``True`` si se eliminó algún archivo persistente de eliminatorias,
-    lo que sirve para saber que el cuadro deberá recalcularse con los nuevos
-    resultados de grupos.
-    """
-
-    removed = False
-    for path in (LLAVES_STATE, LLAVES_CSV):
-        if path.exists():
-            path.unlink()
-            removed = True
-    return removed
+    return False
 
 
 def _cargar_partidos_guardados() -> Dict[str, List[dict]]:
@@ -77,9 +87,9 @@ def _cargar_partidos_guardados() -> Dict[str, List[dict]]:
 
 
 def _guardar_partidos_guardados(data: Dict[str, List[dict]]) -> None:
-    """Persiste los resultados de partidos en disco."""
-
-    PARTIDOS_JSON.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+    """Persistencia deshabilitada: la sesión vive solo en memoria."""
+    # No escribimos en disco para mantener cada instancia aislada.
+    return None
 
 
 def _cargar_grupos_desde(ruta: Path) -> Dict[str, List[dict]]:
@@ -270,18 +280,8 @@ def _partidos_por_jornada(partidos: List[dict]) -> List[dict]:
 
 
 def guardar_grupos(grupos: Dict[str, List[dict]]) -> None:
-    """Guarda todos los grupos en ResultadoGrupos.csv con los puestos recalculados."""
-    # Recalcular y aplanar en orden alfabético de grupo
-    todas_filas: List[dict] = []
-    for grupo in sorted(grupos):
-        filas = recalcular_grupo(grupos[grupo], mantener_orden=True)
-        for fila in filas:
-            todas_filas.append({campo: fila.get(campo, 0) if campo != "pais" and campo != "grupo" else fila.get(campo, "") for campo in CSV_FIELDS})
-
-    with RESULTADO_CSV.open("w", newline="", encoding="utf-8") as f:
-        writer = csv.DictWriter(f, fieldnames=CSV_FIELDS)
-        writer.writeheader()
-        writer.writerows(todas_filas)
+    """Persistencia deshabilitada: la sesión vive solo en memoria."""
+    return None
 
 
 def _reiniciar_partidos(grupos: Dict[str, List[dict]]) -> Dict[str, List[dict]]:
@@ -291,7 +291,6 @@ def _reiniciar_partidos(grupos: Dict[str, List[dict]]) -> Dict[str, List[dict]]:
     for grupo, equipos in grupos.items():
         paises = [e["pais"] for e in equipos]
         resultados[grupo] = _calendario_base(grupo, paises)
-    _guardar_partidos_guardados(resultados)
     return resultados
 
 
@@ -479,7 +478,7 @@ def _buscar_combinacion(cadena: str, combinaciones: List[Dict[str, str]]) -> Dic
     raise ValueError(f"No se encontró combinación para la cadena {cadena!r}")
 
 
-def _equipo_por_posicion(tabla: Dict[str, List[Dict[str, object]]], grupo: str, pos: int) -> str:
+def _equipo_por_posicion(tabla: Dict[str, List[Dict[str, object]]], grupo: str, pos: int) -> Dict[str, str]:
     equipos = tabla.get(grupo.upper(), [])
     if pos <= 0 or pos > len(equipos):
         raise ValueError(f"No hay equipo en la posición {pos} del grupo {grupo}")
@@ -487,18 +486,66 @@ def _equipo_por_posicion(tabla: Dict[str, List[Dict[str, object]]], grupo: str, 
     nombre = equipo.get("pais", "")
     pj = int(equipo.get("pj", 0))
     # Solo mostramos al equipo si completó sus tres partidos de grupo
-    return nombre if pj >= 3 else ""
+    return {"nombre": nombre if pj >= 3 else "", "semilla": f"{grupo.upper()}{pos}"}
 
 
-def _equipo_tercero(tabla: Dict[str, List[Dict[str, object]]], clave: Optional[str]) -> str:
+def _equipo_tercero(tabla: Dict[str, List[Dict[str, object]]], clave: Optional[str]) -> Dict[str, str]:
     if not clave:
         raise ValueError("Valor de combinación inválido para tercero lugar")
     grupo = clave[-1]
     return _equipo_por_posicion(tabla, grupo, 3)
 
 
-def _construir_llaves(tabla: Dict[str, List[Dict[str, object]]], combinacion: Dict[str, str]) -> List[Tuple[int, str, str]]:
-    llaves: List[Tuple[int, str, str]] = []
+def _terceros_listos(tabla: Dict[str, List[dict]]) -> bool:
+    if len(tabla) < 12:
+        return False
+    for equipos in tabla.values():
+        if len(equipos) < 3:
+            return False
+        if int(equipos[2].get("pj", 0)) < 3:
+            return False
+    return True
+
+
+def _llaves_placeholder(tabla: Dict[str, List[dict]]) -> List[Tuple[int, Dict[str, str], Dict[str, str]]]:
+    """
+    Construye el armazón visible mientras las combinaciones de terceros no están listas.
+
+    Los lugares fijos (primeros y segundos) se rellenan con el nombre del equipo
+    apenas completan sus tres partidos, para que aparezcan en eliminatorias sin
+    esperar al cálculo de terceros.
+    """
+
+    vacio = {"nombre": "", "semilla": ""}
+
+    def equipo_fijo(grupo: str, pos: int) -> Dict[str, str]:
+        try:
+            return _equipo_por_posicion(tabla, grupo, pos)
+        except Exception:
+            return {"nombre": "", "semilla": f"{grupo.upper()}{pos}"}
+
+    llaves: List[Tuple[int, Dict[str, str], Dict[str, str]]] = []
+    llaves.append((1, equipo_fijo("E", 1), vacio))
+    llaves.append((2, equipo_fijo("I", 1), vacio))
+    llaves.append((3, equipo_fijo("A", 2), equipo_fijo("B", 2)))
+    llaves.append((4, equipo_fijo("F", 1), equipo_fijo("C", 2)))
+    llaves.append((5, equipo_fijo("K", 2), equipo_fijo("L", 2)))
+    llaves.append((6, equipo_fijo("H", 1), equipo_fijo("J", 2)))
+    llaves.append((7, equipo_fijo("D", 1), vacio))
+    llaves.append((8, equipo_fijo("G", 1), vacio))
+    llaves.append((9, equipo_fijo("C", 1), equipo_fijo("F", 2)))
+    llaves.append((10, equipo_fijo("E", 2), equipo_fijo("I", 2)))
+    llaves.append((11, equipo_fijo("A", 1), vacio))
+    llaves.append((12, equipo_fijo("L", 1), vacio))
+    llaves.append((13, equipo_fijo("J", 1), equipo_fijo("H", 2)))
+    llaves.append((14, equipo_fijo("D", 2), equipo_fijo("G", 2)))
+    llaves.append((15, equipo_fijo("B", 1), vacio))
+    llaves.append((16, equipo_fijo("K", 1), vacio))
+    return llaves
+
+
+def _construir_llaves(tabla: Dict[str, List[Dict[str, object]]], combinacion: Dict[str, str]) -> List[Tuple[int, Dict[str, str], Dict[str, str]]]:
+    llaves: List[Tuple[int, Dict[str, str], Dict[str, str]]] = []
     llaves.append((1, _equipo_por_posicion(tabla, "E", 1), _equipo_tercero(tabla, combinacion.get("1E"))))
     llaves.append((2, _equipo_por_posicion(tabla, "I", 1), _equipo_tercero(tabla, combinacion.get("1I"))))
     llaves.append((3, _equipo_por_posicion(tabla, "A", 2), _equipo_por_posicion(tabla, "B", 2)))
@@ -518,24 +565,49 @@ def _construir_llaves(tabla: Dict[str, List[Dict[str, object]]], combinacion: Di
     return llaves
 
 
-def _guardar_llaves_csv(llaves: List[Tuple[int, str, str]]) -> None:
-    with open(LLAVES_CSV, "w", newline="", encoding="utf-8") as archivo:
-        campos = ["llave", "Equipo1", "Equipo2"]
-        escritor = csv.DictWriter(archivo, fieldnames=campos)
-        escritor.writeheader()
-        for llave, equipo1, equipo2 in llaves:
-            escritor.writerow({"llave": llave, "Equipo1": equipo1, "Equipo2": equipo2})
+def _guardar_llaves_csv(llaves: List[Tuple[int, Dict[str, str], Dict[str, str]]]) -> None:
+    # Persistencia deshabilitada en modo aislado.
+    return None
 
 
-def _llaves_base() -> List[Tuple[int, str, str]]:
-    resultados = _leer_resultados_finales()
-    tabla = _tabla_por_grupo(resultados)
+def _llaves_base(tabla: Dict[str, List[dict]]) -> List[Tuple[int, str, str]]:
     combinaciones = _leer_combinaciones()
-    cadena = _cadena_ultimos_terceros(_terceros_ordenados(resultados))
+    cadena = _cadena_ultimos_terceros(_terceros_ordenados(sum(tabla.values(), [])))
     combinacion = _buscar_combinacion(cadena, combinaciones)
-    llaves = _construir_llaves(tabla, combinacion)
-    _guardar_llaves_csv(llaves)
-    return llaves
+    return _construir_llaves(tabla, combinacion)
+
+
+def _llaves_y_terceros(
+    session: dict, tabla: Dict[str, List[dict]]
+) -> Tuple[List[Tuple[int, Dict[str, str], Dict[str, str]]], List[Dict[str, object]]]:
+    cache = session.get("combination_cache") or {}
+    dirty = session.get("combination_dirty", True)
+    combinaciones_listas = _terceros_listos(tabla)
+
+    if not combinaciones_listas:
+        session["combination_dirty"] = True
+        return _llaves_placeholder(tabla), []
+
+    cadena_actual = _cadena_ultimos_terceros(_terceros_ordenados(sum(tabla.values(), [])))
+
+    if not dirty and cache.get("llaves") and cache.get("cadena") == cadena_actual:
+        return cache.get("llaves", []), cache.get("best_thirds", [])
+
+    try:
+        combinacion = _buscar_combinacion(cadena_actual, _leer_combinaciones())
+        llaves = _construir_llaves(tabla, combinacion)
+        best_thirds = _best_thirds_payload(tabla)
+    except Exception:
+        session["combination_dirty"] = True
+        return _llaves_placeholder(tabla), []
+
+    session["combination_cache"] = {
+        "llaves": llaves,
+        "best_thirds": best_thirds,
+        "cadena": cadena_actual,
+    }
+    session["combination_dirty"] = False
+    return llaves, best_thirds
 
 
 ROUND_NAMES = {
@@ -596,12 +668,20 @@ PROGRESION = [
 ]
 
 
-def _match_template(match_id: int, equipo1: str = "", equipo2: str = "") -> Dict[str, object]:
+def _match_template(
+    match_id: int,
+    equipo1: str = "",
+    equipo2: str = "",
+    semilla1: str = "",
+    semilla2: str = "",
+) -> Dict[str, object]:
     return {
         "id": match_id,
         "round": _round_for_match(match_id),
         "equipo1": equipo1,
         "equipo2": equipo2,
+        "semilla1": semilla1,
+        "semilla2": semilla2,
         "goles1": None,
         "goles2": None,
         "pen1": None,
@@ -610,11 +690,13 @@ def _match_template(match_id: int, equipo1: str = "", equipo2: str = "") -> Dict
     }
 
 
-def _bracket_skeleton() -> Dict[int, Dict[str, object]]:
-    llaves = _llaves_base()
+def _bracket_skeleton(
+    tabla: Dict[str, List[dict]], llaves: Optional[List[Tuple[int, Dict[str, str], Dict[str, str]]]] = None
+) -> Dict[int, Dict[str, object]]:
+    llaves = llaves or _llaves_base(tabla)
     matches: Dict[int, Dict[str, object]] = {}
     for match_id, eq1, eq2 in llaves:
-        matches[match_id] = _match_template(match_id, eq1, eq2)
+        matches[match_id] = _match_template(match_id, eq1["nombre"], eq2["nombre"], eq1["semilla"], eq2["semilla"])
 
     for match_id in range(17, 33):
         if match_id not in matches:
@@ -691,8 +773,12 @@ def _merge_state(base: Dict[int, Dict[str, object]], saved: Dict[str, Dict[str, 
             if libres:
                 match["equipo1"] = data.get("equipo1", "")
                 match["equipo2"] = data.get("equipo2", "")
+                match["semilla1"] = data.get("semilla1", match.get("semilla1", ""))
+                match["semilla2"] = data.get("semilla2", match.get("semilla2", ""))
             for field in ("goles1", "goles2", "pen1", "pen2"):
                 match[field] = data.get(field)
+        match["semilla1"] = data.get("semilla1", match.get("semilla1", ""))
+        match["semilla2"] = data.get("semilla2", match.get("semilla2", ""))
     return merged
 
 
@@ -708,6 +794,8 @@ def _propagar(matches: Dict[int, Dict[str, object]]) -> None:
             actual = matches[dst].get(clave) or ""
             if ganador != actual:
                 matches[dst][clave] = ganador
+                semilla_clave = "semilla1" if slot == 1 else "semilla2"
+                matches[dst][semilla_clave] = matches[src].get("semilla1" if ganador == matches[src].get("equipo1") else "semilla2", "")
                 matches[dst]["goles1"] = None
                 matches[dst]["goles2"] = None
                 matches[dst]["pen1"] = None
@@ -725,8 +813,13 @@ def _propagar(matches: Dict[int, Dict[str, object]]) -> None:
         perdedor_der = _loser(matches.get(30, {}))
         for slot, nuevo in enumerate((perdedor_izq, perdedor_der), start=1):
             clave = "equipo1" if slot == 1 else "equipo2"
+            semilla_clave = "semilla1" if slot == 1 else "semilla2"
             if nuevo != tercer_partido.get(clave):
                 tercer_partido[clave] = nuevo or ""
+                tercer_partido[semilla_clave] = matches[29 + slot - 1].get(
+                    "semilla1" if nuevo == matches[29 + slot - 1].get("equipo1") else "semilla2",
+                    "",
+                )
                 tercer_partido["goles1"] = None
                 tercer_partido["goles2"] = None
                 tercer_partido["pen1"] = None
@@ -734,22 +827,21 @@ def _propagar(matches: Dict[int, Dict[str, object]]) -> None:
         tercer_partido["ganador"] = _winner(tercer_partido) or ""
 
 
-def _load_bracket() -> Dict[int, Dict[str, object]]:
-    base = _bracket_skeleton()
-    guardado: Dict[str, Dict[str, object]] = {}
-    if LLAVES_STATE.exists():
-        try:
-            guardado = json.loads(LLAVES_STATE.read_text(encoding="utf-8"))
-        except json.JSONDecodeError:
-            guardado = {}
+def _load_bracket(
+    session: dict, tabla: Dict[str, List[dict]], llaves: Optional[List[Tuple[int, Dict[str, str], Dict[str, str]]]] = None
+) -> Dict[int, Dict[str, object]]:
+    base = _bracket_skeleton(tabla, llaves)
+    guardado: Dict[str, Dict[str, object]] = session.get("bracket") or {}
 
     merged = _merge_state(base, guardado)
     _propagar(merged)
+    session["bracket"] = merged
     return merged
 
 
 def _save_bracket(matches: Dict[int, Dict[str, object]]) -> None:
-    LLAVES_STATE.write_text(json.dumps(matches, ensure_ascii=False, indent=2), encoding="utf-8")
+    # Persistencia deshabilitada, los datos viven en memoria por sesión.
+    return None
 
 
 LEFT_R32 = [1, 2, 3, 4, 5, 6, 7, 8]
@@ -762,9 +854,9 @@ LEFT_SF = [29]
 RIGHT_SF = [30]
 
 
-def _best_thirds_payload() -> List[Dict[str, object]]:
+def _best_thirds_payload(tabla: Dict[str, List[dict]]) -> List[Dict[str, object]]:
     try:
-        terceros = _terceros_ordenados(_leer_resultados_finales())
+        terceros = _terceros_ordenados(sum(tabla.values(), []))
     except Exception:
         return []
     top = terceros[:8]
@@ -788,6 +880,8 @@ def _serialize_match(match: Dict[str, object]) -> Dict[str, object]:
         "round": ROUND_NAMES.get(match["round"], match["round"]),
         "equipo1": match.get("equipo1", ""),
         "equipo2": match.get("equipo2", ""),
+        "semilla1": match.get("semilla1", ""),
+        "semilla2": match.get("semilla2", ""),
         "goles1": match.get("goles1"),
         "goles2": match.get("goles2"),
         "pen1": match.get("pen1"),
@@ -804,7 +898,9 @@ def _matches_by_ids(matches: Dict[int, Dict[str, object]], ids: List[int]) -> Li
     return serializados
 
 
-def _bracket_payload(matches: Dict[int, Dict[str, object]]) -> Dict[str, object]:
+def _bracket_payload(
+    matches: Dict[int, Dict[str, object]], tabla: Dict[str, List[dict]], best_thirds: Optional[List[Dict[str, object]]] = None
+) -> Dict[str, object]:
     rounds = [
         {"label": ROUND_NAMES["R32"], "matches": _matches_by_ids(matches, list(range(1, 17)))},
         {"label": ROUND_NAMES["R16"], "matches": _matches_by_ids(matches, list(range(17, 25)))},
@@ -814,11 +910,28 @@ def _bracket_payload(matches: Dict[int, Dict[str, object]]) -> Dict[str, object]
         {"label": ROUND_NAMES["F"], "matches": _matches_by_ids(matches, [31])},
     ]
 
-    return {"rounds": rounds, "bestThirds": _best_thirds_payload()}
+    payload_terceros = best_thirds if best_thirds is not None else _best_thirds_payload(tabla)
+    return {"rounds": rounds, "bestThirds": payload_terceros}
 
 
 class GruposHandler(SimpleHTTPRequestHandler):
     """Manejador HTTP con endpoints API y contenido estático."""
+
+    def _ensure_session(self) -> dict:
+        cookie = SimpleCookie(self.headers.get("Cookie", ""))
+        sid = cookie.get("sid")
+        if sid and sid.value in SESSION_STORE:
+            self.session_id = sid.value
+            self._set_cookie = False
+            return SESSION_STORE[sid.value]
+
+        self.session_id = secrets.token_hex(16)
+        SESSION_STORE[self.session_id] = _bootstrap_session()
+        self._set_cookie = True
+        return SESSION_STORE[self.session_id]
+
+    def _table_from_session(self, session: dict) -> Dict[str, List[dict]]:
+        return {g: recalcular_grupo(eq, mantener_orden=False) for g, eq in session.get("grupos", {}).items()}
 
     def do_GET(self):  # noqa: N802 - API http
         if self.path.startswith("/api/groups"):
@@ -843,7 +956,9 @@ class GruposHandler(SimpleHTTPRequestHandler):
         self.send_error(HTTPStatus.NOT_FOUND, "Ruta no encontrada")
 
     def _handle_api_get(self):
-        grupos = cargar_grupos()
+        session = self._ensure_session()
+        grupos = session.get("grupos", {})
+        partidos_por_grupo = session.get("partidos", {})
         # Detalle de un grupo: /api/groups/A
         partes = self.path.split("/")
         if len(partes) >= 4 and partes[3]:
@@ -855,9 +970,7 @@ class GruposHandler(SimpleHTTPRequestHandler):
             # La tabla se entrega ordenada por desempeño, pero los partidos
             # respetan el orden original de países del CSV.
             tabla = recalcular_grupo(data, mantener_orden=False)
-            partidos = _partidos_por_jornada(
-                _partidos_en_crudo(grupo_id, [e["pais"] for e in recalcular_grupo(data, mantener_orden=True)])
-            )
+            partidos = _partidos_por_jornada(partidos_por_grupo.get(grupo_id, []))
             return self._send_json(
                 {
                     "grupo": grupo_id,
@@ -873,6 +986,7 @@ class GruposHandler(SimpleHTTPRequestHandler):
 
     def _handle_api_post(self):
         grupo_id = self.path.rsplit("/", 1)[-1].upper()
+        session = self._ensure_session()
         longitud = int(self.headers.get("Content-Length", 0))
         cuerpo = self.rfile.read(longitud) if longitud else b""
         try:
@@ -880,7 +994,7 @@ class GruposHandler(SimpleHTTPRequestHandler):
         except json.JSONDecodeError:
             return self._send_json({"error": "JSON inválido"}, status=HTTPStatus.BAD_REQUEST)
 
-        grupos = cargar_grupos()
+        grupos = session.get("grupos", {})
         if grupo_id not in grupos:
             return self._send_json({"error": "Grupo no encontrado"}, status=HTTPStatus.NOT_FOUND)
 
@@ -920,14 +1034,29 @@ class GruposHandler(SimpleHTTPRequestHandler):
                 )
 
         grupos[grupo_id] = actualizados
-        guardar_grupos(grupos)
-        llaves_reset = _reset_bracket_state_if_needed()
+        session["grupos"] = grupos
+        llaves_reset = True
         if partidos is not None:
-            guardados = _cargar_partidos_guardados()
+            guardados = session.get("partidos", {})
             guardados[grupo_id] = normalizados
-            _guardar_partidos_guardados(guardados)
+            session["partidos"] = guardados
+        else:
+            partidos_guardados = session.get("partidos", {})
+            if grupo_id in partidos_guardados:
+                partidos_guardados.pop(grupo_id, None)
+                session["partidos"] = partidos_guardados
+        session["bracket"] = None
+        session["combination_dirty"] = True
+        session["combination_cache"] = {}
+
         return self._send_json(
-            {"ok": True, "grupo": grupo_id, "equipos": recalcular_grupo(actualizados), "llavesReiniciadas": llaves_reset}
+            {
+                "ok": True,
+                "grupo": grupo_id,
+                "equipos": recalcular_grupo(actualizados, mantener_orden=False),
+                "partidos": _partidos_por_jornada(session.get("partidos", {}).get(grupo_id, [])),
+                "llavesReiniciadas": llaves_reset,
+            }
         )
 
     def _handle_group_reset(self):
@@ -936,49 +1065,55 @@ class GruposHandler(SimpleHTTPRequestHandler):
             return self._send_json({"error": "Grupo no especificado"}, status=HTTPStatus.BAD_REQUEST)
         grupo_id = partes[2].upper()
 
-        if not GRUPOS_CSV.exists():
-            return self._send_json({"error": "No existe grupos.csv para reiniciar"}, status=HTTPStatus.NOT_FOUND)
-
-        base = _cargar_grupos_desde(GRUPOS_CSV)
+        session = self._ensure_session()
+        base = session.get("semilla", {})
         if grupo_id not in base:
             return self._send_json({"error": "Grupo no encontrado"}, status=HTTPStatus.NOT_FOUND)
 
-        grupos = cargar_grupos()
-        grupos[grupo_id] = base[grupo_id]
-        guardar_grupos(grupos)
+        grupos = session.get("grupos", {})
+        grupos[grupo_id] = recalcular_grupo(base[grupo_id], mantener_orden=True)
+        session["grupos"] = grupos
+        session["bracket"] = None
+        session["combination_dirty"] = True
+        session["combination_cache"] = {}
 
-        llaves_reset = _reset_bracket_state_if_needed()
-
-        partidos_guardados = _cargar_partidos_guardados()
+        partidos_guardados = session.get("partidos", {})
         partidos_guardados[grupo_id] = _calendario_base(grupo_id, [e["pais"] for e in base[grupo_id]])
-        _guardar_partidos_guardados(partidos_guardados)
+        session["partidos"] = partidos_guardados
 
         data = recalcular_grupo(base[grupo_id], mantener_orden=False)
         partidos = _partidos_por_jornada(partidos_guardados[grupo_id])
         return self._send_json(
-            {"ok": True, "grupo": grupo_id, "equipos": data, "partidos": partidos, "llavesReiniciadas": llaves_reset}
+            {"ok": True, "grupo": grupo_id, "equipos": data, "partidos": partidos, "llavesReiniciadas": True}
         )
 
     def _handle_reset(self):
-        try:
-            grupos = sincronizar_desde_grupos()
-        except FileNotFoundError as exc:
-            return self._send_json({"error": str(exc)}, status=HTTPStatus.NOT_FOUND)
-        _reiniciar_partidos(grupos)
-        llaves_reset = _reset_bracket_state_if_needed()
+        session = self._ensure_session()
+        session.update(_bootstrap_session())
+        session["combination_dirty"] = True
+        session["combination_cache"] = {}
         return self._send_json(
-            {"ok": True, "grupos": {g: recalcular_grupo(eq) for g, eq in grupos.items()}, "llavesReiniciadas": llaves_reset}
+            {
+                "ok": True,
+                "grupos": {g: recalcular_grupo(eq) for g, eq in session.get("grupos", {}).items()},
+                "llavesReiniciadas": True,
+            }
         )
 
     def _handle_bracket_get(self):
+        session = self._ensure_session()
+        tabla = self._table_from_session(session)
+        llaves, best_thirds = _llaves_y_terceros(session, tabla)
         try:
-            matches = _load_bracket()
+            matches = _load_bracket(session, tabla, llaves)
         except Exception as exc:  # noqa: BLE001
             return self._send_json({"error": str(exc)}, status=HTTPStatus.BAD_REQUEST)
 
-        return self._send_json(_bracket_payload(matches))
+        return self._send_json(_bracket_payload(matches, tabla, best_thirds))
 
     def _handle_bracket_post(self):
+        session = self._ensure_session()
+        tabla = self._table_from_session(session)
         longitud = int(self.headers.get("Content-Length", 0))
         cuerpo = self.rfile.read(longitud) if longitud else b""
         try:
@@ -991,7 +1126,8 @@ class GruposHandler(SimpleHTTPRequestHandler):
             return self._send_json({"error": "matchId requerido"}, status=HTTPStatus.BAD_REQUEST)
 
         try:
-            matches = _load_bracket()
+            llaves, _ = _llaves_y_terceros(session, tabla)
+            matches = _load_bracket(session, tabla, llaves)
         except Exception as exc:  # noqa: BLE001
             return self._send_json({"error": str(exc)}, status=HTTPStatus.BAD_REQUEST)
 
@@ -1015,13 +1151,15 @@ class GruposHandler(SimpleHTTPRequestHandler):
         match["pen2"] = _leer_campo("pen2")
 
         _propagar(matches)
-        _save_bracket(matches)
+        session["bracket"] = matches
 
-        return self._send_json(_bracket_payload(matches))
+        return self._send_json(_bracket_payload(matches, tabla))
 
     def _send_json(self, data, status: HTTPStatus = HTTPStatus.OK):
         payload = json.dumps(data).encode("utf-8")
         self.send_response(status)
+        if getattr(self, "_set_cookie", False):
+            self.send_header("Set-Cookie", f"sid={self.session_id}; Path=/; Max-Age=604800; SameSite=Lax")
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(payload)))
         self.end_headers()
@@ -1053,4 +1191,20 @@ def run_server(host: str = "0.0.0.0", port: int = 8000) -> None:
 
 
 if __name__ == "__main__":
-    run_server()
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Servidor web para simulador Mundial 2026")
+    parser.add_argument(
+        "--host",
+        default=os.environ.get("SIMULADOR_HOST", "0.0.0.0"),
+        help="Host o IP donde escuchar (por defecto 0.0.0.0 para permitir accesos en la red local)",
+    )
+    parser.add_argument(
+        "--port",
+        type=int,
+        default=int(os.environ.get("SIMULADOR_PORT", 8000)),
+        help="Puerto a usar (por defecto 8000)",
+    )
+    args = parser.parse_args()
+
+    run_server(host=args.host, port=args.port)
