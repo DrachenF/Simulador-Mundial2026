@@ -2,51 +2,93 @@
 <html lang="es">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover"
+    />
     <title>Simulador 2026 | Fase de grupos y eliminatoria</title>
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
-    <div class="page">
-      <div class="container top-phase-nav" aria-hidden="false">
-        <div class="phase-tabs compact" role="tablist" aria-label="Navegación rápida de fases">
-          <button class="tab active" data-phase="groups" role="tab" aria-selected="true">Fase de grupos</button>
-          <button class="tab" data-phase="elimination" role="tab" aria-selected="false">Eliminatoria</button>
-        </div>
-      </div>
-      <div class="container hero-container">
-        <div class="hero">
-          <div class="hero-title">
-            <span class="pill">Mundial 2026</span>
-            <div class="phase-tabs" role="tablist" aria-label="Fases del torneo">
-              <button class="tab active" data-phase="groups" role="tab" aria-selected="true">Fase de grupos</button>
-              <button class="tab" data-phase="elimination" role="tab" aria-selected="false">Eliminatoria</button>
-            </div>
-          </div>
-          <p class="subtitle">
-            Consulta y edita el desempeño de los 12 grupos con estadísticas en vivo desde
-            <strong>ResultadoGrupos.csv</strong> (o <strong>grupos.csv</strong> si es la primera carga).
-          </p>
-          <div class="group-tab-wrapper" id="group-tabs-wrapper">
-            <div class="group-tab-row" aria-label="Mostrar todos los grupos" role="tablist">
-              <button class="tab active" id="all-groups-tab" type="button" aria-selected="true">Grupos A-L</button>
-            </div>
-            <div class="group-tab-row" id="group-tabs" aria-label="Selecciona un grupo" role="tablist"></div>
-          </div>
-        </div>
-      </div>
+    <div class="wrap page">
+      <header class="page-header">
+        <h1>Mundial 2026</h1>
+        <div class="pill" id="status-pill">Fase: Grupos · Grupo A</div>
+      </header>
 
-      <div class="container" data-phase-panel="groups">
-        <header>
-          <p class="subtitle">Grupos disponibles</p>
-          <div style="display: flex; gap: 10px; align-items: center;">
-            <span class="pill" id="status-pill">Listo para sincronizar</span>
-            <button class="button" id="refresh">Reiniciar</button>
+      <nav class="tabs" role="tablist" aria-label="Fases">
+        <button
+          class="tabbtn tab"
+          id="tab-groups"
+          data-phase="groups"
+          role="tab"
+          aria-selected="true"
+          aria-controls="panel-groups"
+        >
+          Fase de grupos
+        </button>
+        <button
+          class="tabbtn tab"
+          id="tab-tables"
+          data-phase="tables"
+          role="tab"
+          aria-selected="false"
+          aria-controls="panel-tables"
+        >
+          Tablas
+        </button>
+        <button
+          class="tabbtn tab"
+          id="tab-ko"
+          data-phase="elimination"
+          role="tab"
+          aria-selected="false"
+          aria-controls="panel-ko"
+        >
+          Eliminatoria
+        </button>
+      </nav>
+
+      <!-- Panel: Fase de grupos -->
+      <section class="card" id="panel-groups" data-phase-panel="groups" role="tabpanel" aria-labelledby="tab-groups">
+        <div class="titleRow">
+          <h2 class="sectionTitle" id="groupHeading">Grupo A</h2>
+          <p class="subtitle">Selecciona un grupo y revisa la tabla de posiciones.</p>
+        </div>
+
+        <div class="group-tab-wrapper" id="group-tabs-wrapper">
+          <div class="groupbar" role="tablist" aria-label="Mostrar todos los grupos">
+            <button class="gbtn tab" id="all-groups-tab" type="button" aria-selected="true">Grupos A-L</button>
           </div>
-        </header>
+          <div class="groupbar" id="group-tabs" aria-label="Selecciona un grupo" role="tablist"></div>
+        </div>
+
         <section class="grid" id="groups"></section>
 
-        <section class="card grouped-card" id="group-detail" aria-live="polite">
+        <div class="tableWrap" id="group-table-wrapper">
+          <div class="scrollX" aria-label="Tabla de grupo">
+            <table>
+              <thead>
+                <tr>
+                  <th>País</th>
+                  <th class="num">PJ</th>
+                  <th class="num">G</th>
+                  <th class="num">E</th>
+                  <th class="num">P</th>
+                  <th class="num">GF</th>
+                  <th class="num">GC</th>
+                  <th class="num">DG</th>
+                  <th class="num">PTS</th>
+                </tr>
+              </thead>
+              <tbody id="groupBody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="contentBox" id="groupContent"></div>
+
+        <section class="grouped-card" id="group-detail" aria-live="polite">
           <div class="card-header group-detail-header">
             <div class="hero-inline">
               <h3 id="detail-title">Selecciona un grupo para editar</h3>
@@ -69,44 +111,87 @@
             <div id="matches-container"></div>
             <div class="form-actions">
               <span class="subtitle" id="group-status"></span>
+              <div class="cta-row">
+                <button class="button" id="refresh">Reiniciar</button>
+              </div>
             </div>
           </div>
         </section>
-      </div>
+      </section>
 
-      <div class="container full-bleed hidden" data-phase-panel="elimination">
-        <section class="card elim-header">
-          <div class="card-header">
+      <!-- Panel: Tablas -->
+      <section class="card" id="panel-tables" data-phase-panel="tables" role="tabpanel" aria-labelledby="tab-tables" hidden>
+        <div class="titleRow">
+          <h2 class="sectionTitle">Tablas (Grupos A–L)</h2>
+          <p class="subtitle">Vista completa de las 12 tablas y los mejores 8 terceros.</p>
+        </div>
+
+        <div class="grid" id="allTablesGrid"></div>
+
+        <div class="card" style="margin-top:12px">
+          <div class="titleRow">
+            <h3 class="sectionTitle">Mejores 8 terceros</h3>
+            <p class="subtitle">Ordenado de mejor a peor (PTS, DG, GF).</p>
+          </div>
+
+          <div class="tableWrap">
+            <div class="scrollX" aria-label="Mejores terceros">
+              <table>
+                <thead>
+                  <tr>
+                    <th class="num">#</th>
+                    <th>Grupo</th>
+                    <th>País</th>
+                    <th class="num">PJ</th>
+                    <th class="num">G</th>
+                    <th class="num">E</th>
+                    <th class="num">P</th>
+                    <th class="num">GF</th>
+                    <th class="num">GC</th>
+                    <th class="num">DG</th>
+                    <th class="num">PTS</th>
+                  </tr>
+                </thead>
+                <tbody id="bestThirdsBody"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="contentBox" style="margin-top:10px">
+            Nota: esto es diseño. Luego puedes cambiar criterios (fair play, etc.).
+          </div>
+        </div>
+      </section>
+
+      <!-- Panel: Eliminatoria -->
+      <section class="koCard" id="panel-ko" data-phase-panel="elimination" role="tabpanel" aria-labelledby="tab-ko" hidden>
+        <div class="koHead elim-header">
+          <div class="titleRow">
             <div>
               <p class="pill muted" id="status">Listo</p>
-              <h3 style="margin: 6px 0 4px;">Llaves de eliminatoria</h3>
-              <p class="muted">Sincroniza los cruces sin salir de la página.</p>
+              <h2 class="sectionTitle">Eliminatoria</h2>
+              <p class="subtitle">Usa scroll para ver todo (móvil/PC). El zoom/pinch no está bloqueado.</p>
             </div>
-
             <div class="cta-row" style="margin-top:0;">
               <button class="button" id="sync">Actualizar llaves</button>
             </div>
           </div>
+        </div>
+
+        <section class="card thirds-card">
+          <div class="card-header">
+            <div>
+              <h3 style="margin:0;">8 mejores terceros</h3>
+              <p class="muted" style="margin:4px 0 0;">Ordenados por puntos, diferencia de goles y goles a favor.</p>
+            </div>
+          </div>
+          <div class="thirds-grid" id="thirds-grid"></div>
         </section>
 
-        <div class="elim-layout">
-          <section class="card thirds-card">
-            <div class="card-header">
-              <div>
-                <h3 style="margin:0;">8 mejores terceros</h3>
-                <p class="muted" style="margin:4px 0 0;">Ordenados por puntos, diferencia de goles y goles a favor.</p>
-              </div>
-            </div>
-            <div class="thirds-grid" id="thirds-grid"></div>
-          </section>
-
-          <section class="card bracket-card">
-            <div class="bracket-shell" id="bracket-viewport">
-              <div class="bracket-grid" id="bracket-grid"></div>
-            </div>
-          </section>
+        <div class="koViewport bracket-shell" id="bracket-viewport" aria-label="Bracket eliminatoria (scroll)">
+          <div class="bracket-grid bracket" id="bracket-grid"></div>
         </div>
-      </div>
+      </section>
 
       <footer id="global-footer">Interfaz renovada para gestionar grupos y llaves · 2026</footer>
     </div>

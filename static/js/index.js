@@ -4,8 +4,13 @@ const groupTabsRow = document.getElementById("group-tabs");
 const allGroupsTab = document.getElementById("all-groups-tab");
 const groupTabsWrapper = document.getElementById("group-tabs-wrapper");
 const groupsContainer = document.getElementById("groups");
+const groupHeading = document.getElementById("groupHeading");
+const groupBody = document.getElementById("groupBody");
+const groupContent = document.getElementById("groupContent");
 const refreshBtn = document.getElementById("refresh");
 const statusPill = document.getElementById("status-pill");
+const allTablesGrid = document.getElementById("allTablesGrid");
+const bestThirdsBody = document.getElementById("bestThirdsBody");
 
 // Detalle de grupo
 const detailTitle = document.getElementById("detail-title");
@@ -29,6 +34,7 @@ let currentGroup = null;
 let saveTimeout;
 let bracketSaveTimeout;
 let bracketLoaded = false;
+let gruposCache = null;
 
 // Utilidades compartidas
 function setPhase(phase) {
@@ -54,6 +60,9 @@ function setPhase(phase) {
     requestAnimationFrame(updateEliminationTopUi);
   } else {
     groupTabsWrapper?.classList.remove("hidden");
+    if (phase === "tables") {
+      renderTablesPanel();
+    }
   }
 }
 
@@ -277,6 +286,7 @@ async function renderOverview() {
     groupsContainer.innerHTML = "";
     const groups = data.grupos;
     const keys = Object.keys(groups).sort();
+    gruposCache = groups;
     gruposDisponibles = data.gruposDisponibles || keys;
     renderGroupTabs(gruposDisponibles);
     setGroupView("all");
@@ -289,6 +299,11 @@ async function renderOverview() {
     }
     const source = data.gruposDisponibles?.length ? "Datos listos" : "Sin datos";
     setStatus(source, "neutral");
+    if (keys.length && groupBody && !groupBody.children.length) {
+      const first = keys[0];
+      renderGroupTablePreview(groups[first], first);
+    }
+    renderTablesPanel();
   } catch (err) {
     groupsContainer.innerHTML =
       "<p class='subtitle'>No pudimos cargar los grupos. ¿Ejecutaste <code>python web_app.py</code>?" +
@@ -344,6 +359,154 @@ function renderTabla(equipos) {
   tablaContainer.appendChild(table);
 }
 
+function renderGroupTablePreview(equipos, groupId) {
+  if (!groupBody) return;
+  if (!equipos?.length) {
+    groupHeading.textContent = "Grupo";
+    groupBody.innerHTML = "<tr><td colspan='9' class='subtitle'>Selecciona un grupo</td></tr>";
+    return;
+  }
+  if (groupHeading) groupHeading.textContent = `Grupo ${groupId ?? ""}`.trim();
+  groupBody.innerHTML = equipos
+    .map(
+      (r) => `
+        <tr>
+          <td class="team">${r.pais}</td>
+          <td class="num">${r.pj}</td>
+          <td class="num">${r.w}</td>
+          <td class="num">${r.d}</td>
+          <td class="num">${r.l}</td>
+          <td class="num">${r.GF}</td>
+          <td class="num">${r.GC}</td>
+          <td class="num">${r.DG}</td>
+          <td class="num">${r.pts}</td>
+        </tr>`
+    )
+    .join("");
+}
+
+function renderFixturesPreview(partidos) {
+  if (!groupContent) return;
+  if (!partidos?.length) {
+    groupContent.innerHTML = "<p class='subtitle'>Carga un grupo para ver sus jornadas.</p>";
+    return;
+  }
+  const jornadas = partidos
+    .map((jornada) => {
+      const filas = jornada.partidos
+        .map((p) => {
+          const left = `<div class="teamName">${p.equipo1}</div>`;
+          const right = `<div class="teamName right">${p.equipo2}</div>`;
+          const marcador = `
+            <div class="score" aria-hidden="true">
+              <span class="box">${p.goles1 ?? ""}</span>
+              <span class="dash">–</span>
+              <span class="box">${p.goles2 ?? ""}</span>
+            </div>`;
+          return `<div class="fixtureRow">${left}${marcador}${right}</div>`;
+        })
+        .join("");
+      return `
+        <div class="mdTitle">Jornada ${jornada.jornada}</div>
+        <div class="fixtures">${filas}</div>
+      `;
+    })
+    .join('<div style="height:12px"></div>');
+  groupContent.innerHTML = jornadas;
+}
+
+function renderTablesPanel() {
+  if (!allTablesGrid || !bestThirdsBody) return;
+  allTablesGrid.innerHTML = "";
+  bestThirdsBody.innerHTML = "";
+  if (!gruposCache) return;
+
+  const letters = Object.keys(gruposCache).sort();
+  letters.forEach((g) => {
+    const equipos = ordenarGrupo(gruposCache[g] || []);
+    const card = document.createElement("div");
+    card.className = "card mini";
+    card.innerHTML = `
+      <div class="titleRow">
+        <h3 class="sectionTitle">Grupo ${g}</h3>
+        <p class="subtitle">Tabla completa</p>
+      </div>
+      <div class="tableWrap">
+        <div class="scrollX">
+          <table>
+            <thead>
+              <tr>
+                <th>País</th>
+                <th class="num">PJ</th>
+                <th class="num">G</th>
+                <th class="num">E</th>
+                <th class="num">P</th>
+                <th class="num">GF</th>
+                <th class="num">GC</th>
+                <th class="num">DG</th>
+                <th class="num">PTS</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${equipos
+                .map(
+                  (r) => `
+                    <tr>
+                      <td class="team">${r.pais}</td>
+                      <td class="num">${r.pj}</td>
+                      <td class="num">${r.w}</td>
+                      <td class="num">${r.d}</td>
+                      <td class="num">${r.l}</td>
+                      <td class="num">${r.GF}</td>
+                      <td class="num">${r.GC}</td>
+                      <td class="num">${r.DG}</td>
+                      <td class="num">${r.pts}</td>
+                    </tr>`
+                )
+                .join("")}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    `;
+    allTablesGrid.appendChild(card);
+  });
+
+  const thirds = letters
+    .map((g) => {
+      const ordered = ordenarGrupo(gruposCache[g] || []);
+      const third = ordered[2];
+      return third ? { group: g, ...third } : null;
+    })
+    .filter(Boolean)
+    .sort((a, b) => {
+      if (b.pts !== a.pts) return b.pts - a.pts;
+      if (b.DG !== a.DG) return b.DG - a.DG;
+      if (b.GF !== a.GF) return b.GF - a.GF;
+      return a.group.localeCompare(b.group);
+    });
+
+  const top8 = thirds.slice(0, 8);
+  bestThirdsBody.innerHTML = top8
+    .map(
+      (r, idx) => `
+        <tr>
+          <td class="num">${idx + 1}</td>
+          <td class="team">${r.group}</td>
+          <td class="team">${r.pais}</td>
+          <td class="num">${r.pj}</td>
+          <td class="num">${r.w}</td>
+          <td class="num">${r.d}</td>
+          <td class="num">${r.l}</td>
+          <td class="num">${r.GF}</td>
+          <td class="num">${r.GC}</td>
+          <td class="num">${r.DG}</td>
+          <td class="num">${r.pts}</td>
+        </tr>`
+    )
+    .join("");
+}
+
 function renderMatches(jornadas) {
   matchesContainer.innerHTML = "";
   if (!jornadas?.length) {
@@ -389,6 +552,11 @@ function renderGroup(data) {
   gruposDisponibles = data?.gruposDisponibles || gruposDisponibles;
   renderTabla(data?.equipos);
   renderMatches(data?.partidos || []);
+  renderGroupTablePreview(data?.equipos, data?.grupo);
+  renderFixturesPreview(data?.partidos || []);
+  if (gruposCache && data?.grupo && data.equipos) {
+    gruposCache[data.grupo] = data.equipos;
+  }
 }
 
 function updateGroupCard(groupId, equipos) {
@@ -465,6 +633,10 @@ async function save() {
     if (data?.equipos) {
       renderTabla(data.equipos);
       updateGroupCard(currentGroup, data.equipos);
+      if (gruposCache && currentGroup) {
+        gruposCache[currentGroup] = data.equipos;
+        renderTablesPanel();
+      }
     }
     groupStatus.textContent = "Actualizado";
     await refreshBracket();

@@ -30,6 +30,72 @@ body {
   overflow-x: hidden;
 }
 
+.wrap {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 12px 16px 18px;
+  width: 100%;
+}
+
+.page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.02));
+  border-radius: 16px;
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  backdrop-filter: blur(10px);
+}
+
+.tabs {
+  margin-top: 12px;
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.tabbtn {
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text);
+  padding: 10px 12px;
+  border-radius: 14px;
+  cursor: pointer;
+  user-select: none;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+  flex: 0 0 auto;
+}
+
+.tabbtn[aria-selected="true"] {
+  border-color: rgba(122, 215, 240, 0.35);
+  background: linear-gradient(180deg, rgba(122, 215, 240, 0.14), rgba(240, 117, 211, 0.10));
+  box-shadow: 0 0 0 1px rgba(122, 215, 240, 0.15) inset;
+}
+
+.tabbtn:focus {
+  outline: 2px solid rgba(122, 215, 240, 0.6);
+  outline-offset: 2px;
+}
+
+.titleRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.sectionTitle {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
 .page {
   min-height: 100vh;
   display: flex;
@@ -182,6 +248,110 @@ h1 {
   flex-direction: column;
   gap: 8px;
   min-height: 200px;
+}
+
+.groupbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  border-top: 1px solid var(--border);
+  padding-top: 12px;
+  margin-top: 12px;
+}
+
+.gbtn {
+  width: 42px;
+  height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text);
+  cursor: pointer;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.gbtn[aria-selected="true"] {
+  border-color: rgba(122, 215, 240, 0.45);
+  background: linear-gradient(180deg, rgba(122, 215, 240, 0.16), rgba(240, 117, 211, 0.08));
+  box-shadow: 0 0 0 1px rgba(122, 215, 240, 0.18) inset;
+}
+
+.contentBox {
+  margin-top: 12px;
+  border: 1px dashed rgba(255, 255, 255, 0.18);
+  border-radius: 14px;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.mdTitle {
+  margin: 0 0 10px 0;
+  font-size: 12px;
+  letter-spacing: 0.35px;
+  color: var(--muted);
+  text-transform: uppercase;
+}
+
+.fixtures {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.fixtureRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  padding: 10px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.12);
+}
+
+.teamName {
+  min-width: 0;
+  font-weight: 700;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.teamName.right {
+  text-align: right;
+}
+
+.score {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+
+.box {
+  width: 34px;
+  height: 28px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.03);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(233, 237, 245, 0.55);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  user-select: none;
+}
+
+.dash {
+  color: rgba(255, 255, 255, 0.35);
+  font-weight: 800;
+  user-select: none;
 }
 
 .card.compact {
