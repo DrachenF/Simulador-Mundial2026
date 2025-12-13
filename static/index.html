@@ -1,75 +1,481 @@
 <!doctype html>
 <html lang="es">
-  <head>
-    <meta charset="UTF-8" />
-    <meta
-      name="viewport"
-      content="width=device-width, initial-scale=1.0, viewport-fit=cover"
-    />
-    <title>Simulador 2026 | Fase de grupos y eliminatoria</title>
-    <link rel="stylesheet" href="./styles.css" />
-  </head>
-  <body>
-    <div class="wrap page">
-      <header class="page-header">
-        <h1>Mundial 2026</h1>
-        <div class="pill" id="status-pill">Fase: Grupos · Grupo A</div>
-      </header>
+<head>
+  <meta charset="utf-8" />
+  <!-- IMPORTANTE: permitir zoom/pinch y evitar bloquearlo -->
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Mundial 2026</title>
 
-      <nav class="tabs" role="tablist" aria-label="Fases">
-        <button
-          class="tabbtn tab"
-          id="tab-groups"
-          data-phase="groups"
-          role="tab"
-          aria-selected="true"
-          aria-controls="panel-groups"
-        >
-          Fase de grupos
-        </button>
-        <button
-          class="tabbtn tab"
-          id="tab-tables"
-          data-phase="tables"
-          role="tab"
-          aria-selected="false"
-          aria-controls="panel-tables"
-        >
-          Tablas
-        </button>
-        <button
-          class="tabbtn tab"
-          id="tab-ko"
-          data-phase="elimination"
-          role="tab"
-          aria-selected="false"
-          aria-controls="panel-ko"
-        >
-          Eliminatoria
-        </button>
-      </nav>
+  <style>
+    :root{
+      color-scheme: dark;
+      --bg:#070a0f;
+      --card:rgba(18,22,31,.9);
+      --text:#e9edf5;
+      --muted:#a7b5c7;
+      --border:rgba(255,255,255,.10);
+      --accent:#5fe6c9;
+      --accent2:#6fa3ff;
+    }
+    *{box-sizing:border-box}
+body{
+  margin:0; min-height:100vh;
+  font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+  background:
+    radial-gradient(circle at 20% 20%, rgba(111,163,255,.10), transparent 35%),
+    radial-gradient(circle at 80% 10%, rgba(95,230,201,.10), transparent 35%),
+    var(--bg);
+  color:var(--text);
 
-      <!-- Panel: Fase de grupos -->
-      <section class="card" id="panel-groups" data-phase-panel="groups" role="tabpanel" aria-labelledby="tab-groups">
+  /* CLAVE: evita scroll horizontal del BODY, pero NO bloquea el scroll vertical */
+  overflow-x: hidden;
+}
+
+
+    .wrap{max-width:1100px;margin:0 auto;padding:16px}
+
+    header{
+      display:flex;align-items:center;justify-content:space-between;gap:12px;
+      padding:14px;
+      border:1px solid var(--border);
+      background:linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.02));
+      border-radius:16px;
+      position:sticky;top:0;z-index:50;
+      backdrop-filter: blur(10px);
+    }
+    h1{margin:0;font-size:18px;letter-spacing:.4px}
+    .pill{
+      font-size:12px;color:var(--muted);
+      border:1px solid var(--border);padding:6px 10px;border-radius:999px;
+      background:rgba(255,255,255,.03);
+      white-space:nowrap;
+    }
+
+    .tabs{margin-top:12px;display:flex;gap:10px;flex-wrap:wrap}
+    .tabbtn{
+      border:1px solid var(--border);
+      background:rgba(255,255,255,.03);
+      color:var(--text);
+      padding:10px 12px;
+      border-radius:14px;
+      cursor:pointer;
+      user-select:none;
+      font-weight:600;
+      letter-spacing:.2px;
+      flex:0 0 auto;
+    }
+    .tabbtn[aria-selected="true"]{
+      border-color:rgba(95,230,201,.35);
+      background:linear-gradient(180deg, rgba(95,230,201,.14), rgba(111,163,255,.10));
+      box-shadow:0 0 0 1px rgba(95,230,201,.15) inset;
+    }
+    .tabbtn:focus{outline:2px solid rgba(111,163,255,.6);outline-offset:2px}
+
+    .card{
+      margin-top:12px;
+      border:1px solid var(--border);
+      background:var(--card);
+      border-radius:16px;
+      padding:14px;
+      box-shadow:0 12px 28px rgba(0,0,0,.28);
+    }
+
+    .groupbar{
+      display:flex;flex-wrap:wrap;gap:8px;
+      border-top:1px solid var(--border);
+      padding-top:12px;
+      margin-top:12px;
+    }
+    .gbtn{
+      width:42px;height:38px;
+      display:inline-flex;align-items:center;justify-content:center;
+      border:1px solid var(--border);
+      border-radius:12px;
+      background:rgba(255,255,255,.03);
+      color:var(--text);
+      cursor:pointer;
+      font-weight:800;
+      text-transform:uppercase;
+    }
+    .gbtn[aria-selected="true"]{
+      border-color:rgba(111,163,255,.45);
+      background:linear-gradient(180deg, rgba(111,163,255,.16), rgba(95,230,201,.08));
+      box-shadow:0 0 0 1px rgba(111,163,255,.18) inset;
+    }
+
+    .titleRow{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+    .subtitle{margin:0;color:var(--muted);font-size:13px}
+    .sectionTitle{margin:0;font-size:16px}
+
+    .tableWrap{
+      margin-top:12px;
+      border:1px solid var(--border);
+      border-radius:14px;
+      overflow:hidden;
+      background:rgba(255,255,255,.02);
+    }
+    .scrollX{overflow:auto;-webkit-overflow-scrolling:touch}
+    table{width:100%;border-collapse:collapse;min-width:720px}
+    thead th{
+      text-align:left;font-size:12px;color:var(--muted);
+      background:rgba(255,255,255,.04);
+      padding:12px 10px;
+      border-bottom:1px solid var(--border);
+      position:sticky;top:0;
+    }
+    tbody td{
+      padding:12px 10px;
+      border-bottom:1px solid rgba(255,255,255,.06);
+      font-size:13px;
+    }
+    tbody tr:hover{background:rgba(255,255,255,.03)}
+    td.num, th.num{ text-align:right; font-variant-numeric: tabular-nums; }
+    td.team{ font-weight:700; }
+
+    /* TABLAS view */
+    .grid{
+      margin-top:12px;
+      display:grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap:12px;
+    }
+    .mini{padding:12px}
+    .mini .tableWrap{margin-top:10px}
+    .mini table{min-width:560px}
+    .mini .sectionTitle{font-size:15px}
+    .mini .subtitle{font-size:12px}
+    .mini thead th, .mini tbody td{padding:10px 10px}
+
+    /* ===== Fixtures (solo diseño) ===== */
+    .contentBox{
+      margin-top:12px;
+      border:1px dashed rgba(255,255,255,.18);
+      border-radius:14px;
+      padding:12px;
+      background:rgba(255,255,255,.02);
+    }
+    .mdTitle{
+      margin:0 0 10px 0;
+      font-size:12px;
+      letter-spacing:.35px;
+      color:var(--muted);
+      text-transform:uppercase;
+    }
+    .fixtures{
+      display:flex;
+      flex-direction:column;
+      gap:10px;
+    }
+    .fixtureRow{
+      display:grid;
+      grid-template-columns: minmax(0,1fr) auto minmax(0,1fr);
+      align-items:center;
+      gap:10px;
+      padding:10px 10px;
+      border:1px solid rgba(255,255,255,.08);
+      border-radius:12px;
+      background:rgba(0,0,0,.12);
+    }
+    .teamName{
+      min-width:0;
+      font-weight:700;
+      color:var(--text);
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+    .teamName.right{ text-align:right; }
+    .score{
+      display:flex;
+      align-items:center;
+      gap:8px;
+      flex:0 0 auto;
+    }
+    .box{
+      width:34px;height:28px;
+      border-radius:8px;
+      border:1px solid rgba(255,255,255,.18);
+      background:rgba(255,255,255,.03);
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      color:rgba(233,237,245,.55);
+      font-weight:800;
+      font-variant-numeric: tabular-nums;
+      user-select:none;
+    }
+    .dash{
+      color:rgba(255,255,255,.35);
+      font-weight:800;
+      user-select:none;
+    }
+
+    /* =========================
+       ELIMINATORIA (FULL BLEED + SCROLL)
+       - Sin “márgenes” laterales: ocupa todo el ancho de la pantalla.
+       - Scroll (x/y) para ver todo el bracket.
+       - Permite pinch-zoom (no bloqueamos touch)
+    ========================== */
+    .koCard{
+      background:transparent;
+      border:none;
+      box-shadow:none;
+      padding:0;
+    }
+    .koHead{
+      padding:14px;
+      border:1px solid var(--border);
+      background:var(--card);
+      border-radius:16px;
+      box-shadow:0 12px 28px rgba(0,0,0,.28);
+      margin-top:12px;
+    }
+.koViewport{
+  /* full-bleed */
+  width:100vw;
+  margin-left:calc(50% - 50vw);
+  margin-right:calc(50% - 50vw);
+
+  margin-top:12px;
+  border-top:1px solid rgba(255,255,255,.08);
+
+  /* SCROLL REAL (x/y) */
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+
+  /* IMPORTANTÍSIMO: que tenga altura utilizable para que exista scroll vertical */
+  max-height: calc(100vh - 220px);
+
+  /* no bloquear pinch */
+  touch-action: pan-x pan-y;
+
+  background:transparent;
+
+  /* espacio prudente abajo */
+  padding-bottom:22px;
+}
+
+/* Evita doble scrollbar: el scroll lo hace solo .koViewport */
+#koBracket{ overflow: visible; }
+#koViewport{ scrollbar-gutter: stable both-edges; }
+
+
+    :root{
+      --koPanel: rgba(18,22,31,.92);
+      --koLine: rgba(255,255,255,.25);
+      --koMatchH: 64px;
+      --koRoundW: 220px;
+      --koGap: 18px;
+      --koRadius: 10px;
+    }
+
+    .bracket{
+  position:relative;
+  display:flex;
+  gap:26px;
+  align-items:flex-start;
+
+  padding:18px;
+padding-right: clamp(48px, 6vw, 120px);
+
+
+  transform-origin: top left;
+  min-width: 1320px;
+  min-height: 760px;
+}
+
+svg.lines{
+  position:absolute;
+  top:0;
+  left:0;
+  pointer-events:none;
+  overflow:visible;
+}
+
+    .side{
+      display:flex;
+      gap:18px;
+      align-items:flex-start;
+      position:relative;
+    }
+    .round{
+      width:var(--koRoundW);
+      position:relative;
+      padding-top:26px;
+      min-height: 720px;
+    }
+    .round .rt{
+      position:absolute; top:0; left:0;
+      font-size:12px;
+      color:var(--muted);
+      letter-spacing:.8px;
+      text-transform:uppercase;
+    }
+    .match{
+      position:absolute;
+      width:100%;
+      height:var(--koMatchH);
+      background:var(--koPanel);
+      border:1px solid var(--border);
+      border-radius:var(--koRadius);
+      overflow:hidden;
+      box-shadow:0 12px 30px rgba(0,0,0,.25);
+    }
+    .mteam{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      height:50%;
+      padding:10px 12px;
+      border-bottom:1px solid rgba(255,255,255,.06);
+      font-size:13px;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+    .mteam:last-child{ border-bottom:none; }
+    .pick{
+      width:14px; height:14px;
+      border-radius:50%;
+      border:1px solid rgba(255,255,255,.22);
+      flex:0 0 auto;
+      margin-left:10px;
+      opacity:.9;
+    }
+    .center{
+      position:relative;
+      width:280px;
+      padding-top:26px;
+      min-height:720px;
+      display:flex;
+      align-items:flex-start;
+      justify-content:flex-start;
+    }
+    .center .block{
+      width:280px;
+      position:relative;
+      height:720px;
+    }
+    .center .rt{
+      position:absolute;
+      left:0;
+      font-size:12px;
+      color:var(--muted);
+      letter-spacing:.8px;
+      text-transform:uppercase;
+    }
+/* El lado derecho sí debe estar en espejo, pero con FLEX (no con transform) */
+.mirror{ flex-direction:row-reverse; }
+
+/* Asegura que no haya transforms que rompan el cálculo de líneas */
+#koRightSide{ transform:none; }
+#koRightSide .round,
+#koRightSide .match,
+#koRightSide .rt,
+#koRightSide .mteam{ transform:none; }
+
+
+
+    /* Texto y cajas del KO: más compactas en móvil */
+    @media (max-width:520px){
+      header{border-radius:14px}
+      .tabbtn{flex:1}
+      .pill{display:none}
+      .card{padding:12px}
+      .gbtn{width:40px}
+      .teamName{min-width:90px}
+      .box{width:32px}
+      .koHead{border-radius:14px}
+      .bracket{padding:14px; min-width: 1220px;}
+      :root{
+        --koMatchH: 58px;
+        --koRoundW: 210px;
+        --koGap: 16px;
+      }
+      .mteam{padding:9px 10px;font-size:12.5px}
+    }
+    @media (max-width:420px){
+      .fixtureRow{gap:8px}
+      .teamName{font-size:15px}
+      .box{width:30px;height:26px}
+      .bracket{min-width: 1180px;}
+      :root{
+        --koMatchH: 56px;
+        --koRoundW: 205px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="wrap">
+    <header>
+      <h1>Mundial 2026</h1>
+      <div class="pill" id="statusPill">Fase: Grupos · Grupo A</div>
+    </header>
+
+    <nav class="tabs" role="tablist" aria-label="Fases">
+      <button class="tabbtn" id="tab-groups" role="tab" aria-selected="true" aria-controls="panel-groups">Fase de grupos</button>
+      <button class="tabbtn" id="tab-tables" role="tab" aria-selected="false" aria-controls="panel-tables">Tablas</button>
+      <button class="tabbtn" id="tab-ko" role="tab" aria-selected="false" aria-controls="panel-ko">Eliminatoria</button>
+    </nav>
+
+    <!-- Panel: Fase de grupos -->
+    <section class="card" id="panel-groups" role="tabpanel" aria-labelledby="tab-groups">
+      <div class="titleRow">
+        <h2 class="sectionTitle" id="groupHeading">Grupo A</h2>
+        <p class="subtitle">Selecciona un grupo y revisa la tabla de posiciones.</p>
+      </div>
+
+      <div class="groupbar" role="tablist" aria-label="Grupos"></div>
+
+      <div class="tableWrap">
+        <div class="scrollX" aria-label="Tabla de grupo">
+          <table>
+            <thead>
+              <tr>
+                <th>País</th>
+                <th class="num">PJ</th>
+                <th class="num">G</th>
+                <th class="num">E</th>
+                <th class="num">P</th>
+                <th class="num">GF</th>
+                <th class="num">GC</th>
+                <th class="num">DG</th>
+                <th class="num">PTS</th>
+              </tr>
+            </thead>
+            <tbody id="groupBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- CONTENIDO (solo diseño): Jornadas 1-3 -->
+      <div class="contentBox" id="groupContent"></div>
+    </section>
+
+    <!-- Panel: Tablas -->
+    <section class="card" id="panel-tables" role="tabpanel" aria-labelledby="tab-tables" hidden>
+      <div class="titleRow">
+        <h2 class="sectionTitle">Tablas (Grupos A–L)</h2>
+        <p class="subtitle">Vista completa de las 12 tablas y los mejores 8 terceros.</p>
+      </div>
+
+      <div class="grid" id="allTablesGrid"></div>
+
+      <div class="card" style="margin-top:12px">
         <div class="titleRow">
-          <h2 class="sectionTitle" id="groupHeading">Grupo A</h2>
-          <p class="subtitle">Selecciona un grupo y revisa la tabla de posiciones.</p>
+          <h3 class="sectionTitle">Mejores 8 terceros</h3>
+          <p class="subtitle">Ordenado de mejor a peor (PTS, DG, GF).</p>
         </div>
 
-        <div class="group-tab-wrapper" id="group-tabs-wrapper">
-          <div class="groupbar" role="tablist" aria-label="Mostrar todos los grupos">
-            <button class="gbtn tab" id="all-groups-tab" type="button" aria-selected="true">Grupos A-L</button>
-          </div>
-          <div class="groupbar" id="group-tabs" aria-label="Selecciona un grupo" role="tablist"></div>
-        </div>
-
-        <section class="grid" id="groups"></section>
-
-        <div class="tableWrap" id="group-table-wrapper">
-          <div class="scrollX" aria-label="Tabla de grupo">
+        <div class="tableWrap">
+          <div class="scrollX" aria-label="Mejores terceros">
             <table>
               <thead>
                 <tr>
+                  <th class="num">#</th>
+                  <th>Grupo</th>
                   <th>País</th>
                   <th class="num">PJ</th>
                   <th class="num">G</th>
@@ -81,66 +487,223 @@
                   <th class="num">PTS</th>
                 </tr>
               </thead>
-              <tbody id="groupBody"></tbody>
+              <tbody id="bestThirdsBody"></tbody>
             </table>
           </div>
         </div>
 
-        <div class="contentBox" id="groupContent"></div>
+        <div class="contentBox" style="margin-top:10px">
+          Nota: esto es diseño. Luego puedes cambiar criterios (fair play, etc.).
+        </div>
+      </div>
+    </section>
 
-        <section class="grouped-card" id="group-detail" aria-live="polite">
-          <div class="card-header group-detail-header">
-            <div class="hero-inline">
-              <h3 id="detail-title">Selecciona un grupo para editar</h3>
-              <div class="pill muted" id="detail-stepper">—</div>
-            </div>
-            <div class="cta-row">
-              <button class="button secondary icon" id="detail-prev" aria-label="Grupo anterior">⟵</button>
-              <button class="button secondary icon" id="detail-next" aria-label="Grupo siguiente">⟶</button>
-              <button class="button secondary icon-text" id="reset-group" type="button">⟳ Reiniciar grupo</button>
-            </div>
-          </div>
-
-          <div class="summary-card card compact">
-            <p class="helper">Resumen del grupo recalculado al vuelo.</p>
-            <div id="tabla-container"></div>
-          </div>
-
-          <div class="matches-card card">
-            <p class="helper">Captura los marcadores de los 6 partidos. Los puntos y la diferencia de goles se recalculan automáticamente.</p>
-            <div id="matches-container"></div>
-            <div class="form-actions">
-              <span class="subtitle" id="group-status"></span>
-              <div class="cta-row">
-                <button class="button" id="refresh">Reiniciar</button>
-              </div>
-            </div>
-          </div>
-        </section>
-      </section>
-
-      <!-- Panel: Tablas -->
-      <section class="card" id="panel-tables" data-phase-panel="tables" role="tabpanel" aria-labelledby="tab-tables" hidden>
+    <!-- Panel: Eliminatoria -->
+    <section class="koCard" id="panel-ko" role="tabpanel" aria-labelledby="tab-ko" hidden>
+      <div class="koHead">
         <div class="titleRow">
-          <h2 class="sectionTitle">Tablas (Grupos A–L)</h2>
-          <p class="subtitle">Vista completa de las 12 tablas y los mejores 8 terceros.</p>
+          <h2 class="sectionTitle">Eliminatoria</h2>
+          <p class="subtitle">Usa scroll para ver todo (móvil/PC). El zoom/pinch no está bloqueado.</p>
+        </div>
+      </div>
+
+      <!-- FULL BLEED + SCROLL -->
+      <div class="koViewport" id="koViewport" aria-label="Bracket eliminatoria (scroll)">
+        <div class="bracket" id="koBracket">
+          <svg class="lines" id="koLines"></svg>
+          <div class="side" id="koLeftSide"></div>
+          <div class="center" id="koCenter"></div>
+          <div class="side mirror" id="koRightSide"></div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    // ====== Equipos base ======
+    const GROUPS = {
+      A: ["México", "Sudáfrica", "República de Corea", "Dinamarca"],
+      B: ["Canadá", "Italia", "Qatar", "Suiza"],
+      C: ["Brasil", "Marruecos", "Haití", "Japón"],
+      D: ["Argentina", "Estados Unidos", "Ghana", "Países Bajos"],
+      E: ["España", "Croacia", "Australia", "Irán"],
+      F: ["Francia", "Senegal", "Uruguay", "Suecia"],
+      G: ["Alemania", "Colombia", "Egipto", "Polonia"],
+      H: ["Portugal", "Nigeria", "Serbia", "Chile"],
+      I: ["Inglaterra", "Camerún", "Ecuador", "Noruega"],
+      J: ["Bélgica", "Perú", "Túnez", "Costa Rica"],
+      K: ["Italia (2)", "Corea del Sur (2)", "México (2)", "Marruecos (2)"],
+      L: ["Brasil (2)", "Argentina (2)", "España (2)", "Francia (2)"],
+    };
+
+    const emptyRow = (team) => ({ team, pj:0, g:0, e:0, p:0, gf:0, gc:0, dg:0, pts:0 });
+
+    // Datos (por ahora todo en 0)
+    const groupStats = {};
+    for (const [g, teams] of Object.entries(GROUPS)){
+      groupStats[g] = teams.map(emptyRow);
+    }
+
+    // ====== Estado ======
+    const state = { stage: "groups", group: "A" };
+
+    // ====== Elementos ======
+    const tabGroups = document.getElementById("tab-groups");
+    const tabTables = document.getElementById("tab-tables");
+    const tabKO = document.getElementById("tab-ko");
+
+    const panelGroups = document.getElementById("panel-groups");
+    const panelTables = document.getElementById("panel-tables");
+    const panelKO = document.getElementById("panel-ko");
+
+    const statusPill = document.getElementById("statusPill");
+    const groupBar = document.querySelector(".groupbar");
+    const groupHeading = document.getElementById("groupHeading");
+    const groupBody = document.getElementById("groupBody");
+    const groupContent = document.getElementById("groupContent");
+
+    const allTablesGrid = document.getElementById("allTablesGrid");
+    const bestThirdsBody = document.getElementById("bestThirdsBody");
+
+    // ====== Helpers ======
+    function escapeHtml(str){
+      return String(str)
+        .replaceAll("&","&amp;")
+        .replaceAll("<","&lt;")
+        .replaceAll(">","&gt;")
+        .replaceAll('"',"&quot;")
+        .replaceAll("'","&#039;");
+    }
+
+    function sortStandings(rows){
+      return [...rows].sort((a,b) => {
+        if (b.pts !== a.pts) return b.pts - a.pts;
+        if (b.dg !== a.dg) return b.dg - a.dg;
+        if (b.gf !== a.gf) return b.gf - a.gf;
+        return a.team.localeCompare(b.team, "es");
+      });
+    }
+
+    // ====== FIXTURES (solo diseño) ======
+    function fixturesHtml(groupLetter){
+      const teams = GROUPS[groupLetter] || ["Selección", "Selección", "Selección", "Selección"];
+      const t1 = teams[0] || "Selección";
+      const t2 = teams[1] || "Selección";
+      const t3 = teams[2] || "Selección";
+      const t4 = teams[3] || "Selección";
+
+      return `
+        <div class="mdTitle">Jornada 1</div>
+        <div class="fixtures">
+          ${fixtureRow(t1, t2)}
+          ${fixtureRow(t3, t4)}
         </div>
 
-        <div class="grid" id="allTablesGrid"></div>
+        <div style="height:12px"></div>
 
-        <div class="card" style="margin-top:12px">
+        <div class="mdTitle">Jornada 2</div>
+        <div class="fixtures">
+          ${fixtureRow(t1, t3)}
+          ${fixtureRow(t2, t4)}
+        </div>
+
+        <div style="height:12px"></div>
+
+        <div class="mdTitle">Jornada 3</div>
+        <div class="fixtures">
+          ${fixtureRow(t1, t4)}
+          ${fixtureRow(t2, t3)}
+        </div>
+      `;
+    }
+
+    function fixtureRow(left, right){
+      return `
+        <div class="fixtureRow">
+          <div class="teamName">${escapeHtml(left)}</div>
+          <div class="score" aria-hidden="true">
+            <span class="box"> </span>
+            <span class="dash">–</span>
+            <span class="box"> </span>
+          </div>
+          <div class="teamName right">${escapeHtml(right)}</div>
+        </div>
+      `;
+    }
+
+    // ====== Render: Stage ======
+    function renderStage(){
+      const s = state.stage;
+      tabGroups.setAttribute("aria-selected", String(s === "groups"));
+      tabTables.setAttribute("aria-selected", String(s === "tables"));
+      tabKO.setAttribute("aria-selected", String(s === "ko"));
+
+      panelGroups.hidden = s !== "groups";
+      panelTables.hidden = s !== "tables";
+      panelKO.hidden = s !== "ko";
+
+      if (s === "groups") statusPill.textContent = `Fase: Grupos · Grupo ${state.group}`;
+      if (s === "tables") statusPill.textContent = `Fase: Tablas · A–L`;
+      if (s === "ko") statusPill.textContent = `Fase: Eliminatoria`;
+    }
+
+    // ====== Render: Group view ======
+    function renderGroupBar(){
+      groupBar.innerHTML = "";
+      const letters = Object.keys(GROUPS);
+      for (const g of letters){
+        const b = document.createElement("button");
+        b.className = "gbtn";
+        b.type = "button";
+        b.textContent = g;
+        b.setAttribute("role", "tab");
+        b.setAttribute("aria-selected", String(state.group === g));
+        b.addEventListener("click", () => { state.group = g; renderAll(); });
+        groupBar.appendChild(b);
+      }
+    }
+
+    function renderGroupTable(){
+      const rows = sortStandings(groupStats[state.group] || []);
+      groupHeading.textContent = `Grupo ${state.group}`;
+
+      groupBody.innerHTML = rows.map(r => `
+        <tr>
+          <td class="team">${escapeHtml(r.team)}</td>
+          <td class="num">${r.pj}</td>
+          <td class="num">${r.g}</td>
+          <td class="num">${r.e}</td>
+          <td class="num">${r.p}</td>
+          <td class="num">${r.gf}</td>
+          <td class="num">${r.gc}</td>
+          <td class="num">${r.dg}</td>
+          <td class="num">${r.pts}</td>
+        </tr>
+      `).join("");
+
+      groupContent.innerHTML = fixturesHtml(state.group);
+    }
+
+    // ====== Render: Tables view ======
+    function renderAllTables(){
+      allTablesGrid.innerHTML = "";
+      const letters = Object.keys(GROUPS);
+
+      for (const g of letters){
+        const rows = sortStandings(groupStats[g] || []);
+        const card = document.createElement("div");
+        card.className = "card mini";
+        card.innerHTML = `
           <div class="titleRow">
-            <h3 class="sectionTitle">Mejores 8 terceros</h3>
-            <p class="subtitle">Ordenado de mejor a peor (PTS, DG, GF).</p>
+            <h3 class="sectionTitle">Grupo ${g}</h3>
+            <p class="subtitle">Tabla completa</p>
           </div>
 
           <div class="tableWrap">
-            <div class="scrollX" aria-label="Mejores terceros">
+            <div class="scrollX">
               <table>
                 <thead>
                   <tr>
-                    <th class="num">#</th>
-                    <th>Grupo</th>
                     <th>País</th>
                     <th class="num">PJ</th>
                     <th class="num">G</th>
@@ -152,49 +715,389 @@
                     <th class="num">PTS</th>
                   </tr>
                 </thead>
-                <tbody id="bestThirdsBody"></tbody>
+                <tbody>
+                  ${rows.map(r => `
+                    <tr>
+                      <td class="team">${escapeHtml(r.team)}</td>
+                      <td class="num">${r.pj}</td>
+                      <td class="num">${r.g}</td>
+                      <td class="num">${r.e}</td>
+                      <td class="num">${r.p}</td>
+                      <td class="num">${r.gf}</td>
+                      <td class="num">${r.gc}</td>
+                      <td class="num">${r.dg}</td>
+                      <td class="num">${r.pts}</td>
+                    </tr>
+                  `).join("")}
+                </tbody>
               </table>
             </div>
           </div>
+        `;
+        allTablesGrid.appendChild(card);
+      }
+    }
 
-          <div class="contentBox" style="margin-top:10px">
-            Nota: esto es diseño. Luego puedes cambiar criterios (fair play, etc.).
-          </div>
-        </div>
-      </section>
+    function renderBestThirds(){
+      const letters = Object.keys(GROUPS);
 
-      <!-- Panel: Eliminatoria -->
-      <section class="koCard" id="panel-ko" data-phase-panel="elimination" role="tabpanel" aria-labelledby="tab-ko" hidden>
-        <div class="koHead elim-header">
-          <div class="titleRow">
-            <div>
-              <p class="pill muted" id="status">Listo</p>
-              <h2 class="sectionTitle">Eliminatoria</h2>
-              <p class="subtitle">Usa scroll para ver todo (móvil/PC). El zoom/pinch no está bloqueado.</p>
-            </div>
-            <div class="cta-row" style="margin-top:0;">
-              <button class="button" id="sync">Actualizar llaves</button>
-            </div>
-          </div>
-        </div>
+      const thirds = letters.map(g => {
+        const ordered = sortStandings(groupStats[g] || []);
+        const third = ordered[2] || null;
+        return third ? { group: g, ...third } : null;
+      }).filter(Boolean);
 
-        <section class="card thirds-card">
-          <div class="card-header">
-            <div>
-              <h3 style="margin:0;">8 mejores terceros</h3>
-              <p class="muted" style="margin:4px 0 0;">Ordenados por puntos, diferencia de goles y goles a favor.</p>
-            </div>
-          </div>
-          <div class="thirds-grid" id="thirds-grid"></div>
-        </section>
+      thirds.sort((a,b) => {
+        if (b.pts !== a.pts) return b.pts - a.pts;
+        if (b.dg !== a.dg) return b.dg - a.dg;
+        if (b.gf !== a.gf) return b.gf - a.gf;
+        if (a.group !== b.group) return a.group.localeCompare(b.group, "es");
+        return a.team.localeCompare(b.team, "es");
+      });
 
-        <div class="koViewport bracket-shell" id="bracket-viewport" aria-label="Bracket eliminatoria (scroll)">
-          <div class="bracket-grid bracket" id="bracket-grid"></div>
-        </div>
-      </section>
+      const top8 = thirds.slice(0, 8);
 
-      <footer id="global-footer">Interfaz renovada para gestionar grupos y llaves · 2026</footer>
-    </div>
-    <script src="./js/index.js" type="module"></script>
-  </body>
+      bestThirdsBody.innerHTML = top8.map((r, idx) => `
+        <tr>
+          <td class="num">${idx + 1}</td>
+          <td class="team">${escapeHtml(r.group)}</td>
+          <td class="team">${escapeHtml(r.team)}</td>
+          <td class="num">${r.pj}</td>
+          <td class="num">${r.g}</td>
+          <td class="num">${r.e}</td>
+          <td class="num">${r.p}</td>
+          <td class="num">${r.gf}</td>
+          <td class="num">${r.gc}</td>
+          <td class="num">${r.dg}</td>
+          <td class="num">${r.pts}</td>
+        </tr>
+      `).join("");
+    }
+
+    // =========================
+    // ELIMINATORIA: Bracket (solo gráfico) + SVG líneas
+    // Basado en tu bracket.html (sin carrusel; ahora con scroll)
+    // =========================
+    const koLeftSide = document.getElementById("koLeftSide");
+    const koRightSide = document.getElementById("koRightSide");
+    const koCenter = document.getElementById("koCenter");
+    const koLines = document.getElementById("koLines");
+
+    // Placeholder (solo diseño)
+    const teamsLeft = [
+      "HAITÍ","FRANCIA","A. SAUDITA","SUDÁFRICA","UEFA 1","P. BAJOS","MARRUECOS","FIFA 1",
+      "CROACIA","ESPAÑA","ARGELIA","E. UNIDOS","FIFA 2","BRASIL","URUGUAY","COLOMBIA"
+    ];
+    const teamsRight = [
+      "JAPÓN","CURAZAO","SENEGAL","MÉXICO","C. DE MARFIL","INGLATERRA","UZBEKISTÁN","ARGENTINA",
+      "C. VERDE","AUSTRALIA","EGIPTO","CANADÁ","AUSTRIA","ITALIA","ALEMANIA","PORTUGAL"
+    ];
+
+    function el(tag, attrs={}, children=[]){
+      const n = document.createElement(tag);
+      for(const [k,v] of Object.entries(attrs)){
+        if(k === "class") n.className = v;
+        else if(k === "text") n.textContent = v;
+        else n.setAttribute(k, v);
+      }
+      for(const c of children) n.appendChild(c);
+      return n;
+    }
+
+    function matchNode({ id, teamA="—", teamB="—", next="" }){
+      const m = el("div", { class:"match", "data-id":id, "data-next":next });
+      m.appendChild(el("div", { class:"mteam", title:teamA }, [
+        document.createTextNode(teamA),
+        el("span",{ class:"pick" })
+      ]));
+      m.appendChild(el("div", { class:"mteam", title:teamB }, [
+        document.createTextNode(teamB),
+        el("span",{ class:"pick" })
+      ]));
+      return m;
+    }
+
+    function roundNode(title){
+      const r = el("div",{ class:"round" });
+      r.appendChild(el("div",{ class:"rt", text:title }));
+      return r;
+    }
+
+    function placeMatch(roundEl, matchEl, top){
+      matchEl.style.top = `${top}px`;
+      roundEl.appendChild(matchEl);
+    }
+
+    // Mapa simple para dibujar líneas: from -> to
+    function line(svg, x1,y1,x2,y2){
+      const p = document.createElementNS("http://www.w3.org/2000/svg","path");
+      const mid = (x1 + x2) / 2;
+      p.setAttribute("d", `M ${x1} ${y1} L ${mid} ${y1} L ${mid} ${y2} L ${x2} ${y2}`);
+      p.setAttribute("fill","none");
+      p.setAttribute("stroke","rgba(255,255,255,.25)");
+      p.setAttribute("stroke-width","2");
+      p.setAttribute("stroke-linecap","round");
+      svg.appendChild(p);
+    }
+
+    function centerBlock(){
+      const c = el("div",{ class:"block" });
+
+      // etiquetas
+      const rtFinal = el("div",{ class:"rt", text:"FINAL" });
+      rtFinal.style.top = "0px";
+      c.appendChild(rtFinal);
+
+      const rt3 = el("div",{ class:"rt", text:"TERCER LUGAR" });
+      rt3.style.top = "250px";
+      c.appendChild(rt3);
+
+      // Final (2 equipos)
+      const final = matchNode({ id:"F", teamA:"—", teamB:"—" });
+      final.style.width = "260px";
+      final.style.left = "0px";
+      final.style.top = "34px";
+      c.appendChild(final);
+
+      // 3er lugar
+      const third = matchNode({ id:"T3", teamA:"—", teamB:"—" });
+      third.style.width = "260px";
+      third.style.left = "0px";
+      third.style.top = "284px";
+      c.appendChild(third);
+
+      return c;
+    }
+
+    function renderKO(){
+      // limpiar
+      koLeftSide.innerHTML = "";
+      koRightSide.innerHTML = "";
+      koCenter.innerHTML = "";
+      koLines.innerHTML = "";
+
+      // Rondas izquierda: 16vos -> 8vos -> 4tos -> Semi
+      const L16 = roundNode("16VOS");
+      const L8  = roundNode("8VOS");
+      const L4  = roundNode("4TOS");
+      const LS  = roundNode("SEMI");
+
+      // Rondas derecha (mirror visual): 16vos -> 8vos -> 4tos -> Semi (pero se dibuja igual y el contenedor invierte)
+      const R16 = roundNode("16VOS");
+      const R8  = roundNode("8VOS");
+      const R4  = roundNode("4TOS");
+      const RS  = roundNode("SEMI");
+
+      // layout vertical (simple)
+      const MH = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--koMatchH")) || 64;
+      const G  = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--koGap")) || 18;
+
+      // 16vos: 8 matches
+      const top0 = 14;
+      const step16 = MH + G;
+
+      const Lm16 = [];
+      for(let i=0;i<8;i++){
+        const a = teamsLeft[i*2] ?? "—";
+        const b = teamsLeft[i*2+1] ?? "—";
+        const m = matchNode({ id:`L16_${i+1}` });
+        // poner texto
+        m.querySelectorAll(".mteam")[0].childNodes[0].nodeValue = a;
+        m.querySelectorAll(".mteam")[1].childNodes[0].nodeValue = b;
+        placeMatch(L16, m, top0 + i*step16);
+        Lm16.push(m);
+      }
+
+      const Rm16 = [];
+      for(let i=0;i<8;i++){
+        const a = teamsRight[i*2] ?? "—";
+        const b = teamsRight[i*2+1] ?? "—";
+        const m = matchNode({ id:`R16_${i+1}` });
+        m.querySelectorAll(".mteam")[0].childNodes[0].nodeValue = a;
+        m.querySelectorAll(".mteam")[1].childNodes[0].nodeValue = b;
+        placeMatch(R16, m, top0 + i*step16);
+        Rm16.push(m);
+      }
+
+      // 8vos: 4 matches centrados entre pares de 16vos
+      const step8 = step16 * 2;
+      const off8 = top0 + (MH/2) + (G/2) - (MH/2);
+      const Lm8 = [];
+      for(let i=0;i<4;i++){
+        const m = matchNode({ id:`L8_${i+1}` });
+        placeMatch(L8, m, off8 + i*step8);
+        Lm8.push(m);
+      }
+      const Rm8 = [];
+      for(let i=0;i<4;i++){
+        const m = matchNode({ id:`R8_${i+1}` });
+        placeMatch(R8, m, off8 + i*step8);
+        Rm8.push(m);
+      }
+
+      // 4tos: 2 matches
+      const step4 = step8 * 2;
+      const off4 = off8 + (MH/2) + (G/2);
+      const Lm4 = [];
+      for(let i=0;i<2;i++){
+        const m = matchNode({ id:`L4_${i+1}` });
+        placeMatch(L4, m, off4 + i*step4);
+        Lm4.push(m);
+      }
+      const Rm4 = [];
+      for(let i=0;i<2;i++){
+        const m = matchNode({ id:`R4_${i+1}` });
+        placeMatch(R4, m, off4 + i*step4);
+        Rm4.push(m);
+      }
+
+      // Semis: 1 match por lado
+      const offS = off4 + (MH/2) + (G/2);
+      const Ls = matchNode({ id:"LS_1" });
+      placeMatch(LS, Ls, offS);
+      const Rs = matchNode({ id:"RS_1" });
+      placeMatch(RS, Rs, offS);
+
+      // Construir lados
+      koLeftSide.appendChild(L16);
+      koLeftSide.appendChild(L8);
+      koLeftSide.appendChild(L4);
+      koLeftSide.appendChild(LS);
+
+      koRightSide.appendChild(R16);
+      koRightSide.appendChild(R8);
+      koRightSide.appendChild(R4);
+      koRightSide.appendChild(RS);
+
+// Centro (final + 3er lugar)
+koCenter.appendChild(centerBlock());
+
+
+      // Ajustar tamaño del SVG a la caja real
+      requestAnimationFrame(() => {
+        const bracket = document.getElementById("koBracket");
+        const rect = bracket.getBoundingClientRect();
+        koLines.setAttribute("viewBox", `0 0 ${rect.width} ${rect.height}`);
+
+koLines.setAttribute("width", rect.width);
+koLines.setAttribute("height", rect.height);
+
+
+        // dibujar líneas con posiciones reales
+        const all = bracket.querySelectorAll(".match");
+        const byId = {};
+        all.forEach(n => byId[n.getAttribute("data-id")] = n);
+
+        function midRight(elm){
+          const r = elm.getBoundingClientRect();
+          const b = bracket.getBoundingClientRect();
+          return { x: (r.right - b.left), y: (r.top - b.top) + r.height/2 };
+        }
+        function midLeft(elm){
+          const r = elm.getBoundingClientRect();
+          const b = bracket.getBoundingClientRect();
+          return { x: (r.left - b.left), y: (r.top - b.top) + r.height/2 };
+        }
+
+        // izquierda: 16->8, 8->4, 4->S
+        for(let i=0;i<8;i++){
+          const from = byId[`L16_${i+1}`];
+          const to = byId[`L8_${Math.floor(i/2)+1}`];
+          if(from && to){
+            const a = midRight(from);
+            const b2 = midLeft(to);
+            line(koLines, a.x, a.y, b2.x, b2.y);
+          }
+        }
+        for(let i=0;i<4;i++){
+          const from = byId[`L8_${i+1}`];
+          const to = byId[`L4_${Math.floor(i/2)+1}`];
+          if(from && to){
+            const a = midRight(from);
+            const b2 = midLeft(to);
+            line(koLines, a.x, a.y, b2.x, b2.y);
+          }
+        }
+        for(let i=0;i<2;i++){
+          const from = byId[`L4_${i+1}`];
+          const to = byId["LS_1"];
+          if(from && to){
+            const a = midRight(from);
+            const b2 = midLeft(to);
+            line(koLines, a.x, a.y, b2.x, b2.y);
+          }
+        }
+
+        // derecha: 16->8, 8->4, 4->S (pero al estar mirror, conectamos desde "izquierda" del match derecho hacia "derecha" del siguiente)
+        for(let i=0;i<8;i++){
+          const from = byId[`R16_${i+1}`];
+          const to = byId[`R8_${Math.floor(i/2)+1}`];
+          if(from && to){
+            const a = midLeft(from);
+            const b2 = midRight(to);
+            line(koLines, a.x, a.y, b2.x, b2.y);
+          }
+        }
+        for(let i=0;i<4;i++){
+          const from = byId[`R8_${i+1}`];
+          const to = byId[`R4_${Math.floor(i/2)+1}`];
+          if(from && to){
+            const a = midLeft(from);
+            const b2 = midRight(to);
+            line(koLines, a.x, a.y, b2.x, b2.y);
+          }
+        }
+        for(let i=0;i<2;i++){
+          const from = byId[`R4_${i+1}`];
+          const to = byId["RS_1"];
+          if(from && to){
+            const a = midLeft(from);
+            const b2 = midRight(to);
+            line(koLines, a.x, a.y, b2.x, b2.y);
+          }
+        }
+
+        // semis -> FINAL (centro)
+        const final = byId["F"];
+        const ls = byId["LS_1"];
+        const rs = byId["RS_1"];
+        if(final && ls){
+          const a = midRight(ls);
+          const b2 = midLeft(final);
+          line(koLines, a.x, a.y, b2.x, b2.y);
+        }
+        if(final && rs){
+          const a = midLeft(rs);
+          const b2 = midRight(final);
+          line(koLines, a.x, a.y, b2.x, b2.y);
+        }
+      });
+    }
+
+    // ====== Render All ======
+    function renderAll(){
+      renderStage();
+
+      if (state.stage === "groups"){
+        renderGroupBar();
+        renderGroupTable();
+      }
+      if (state.stage === "tables"){
+        renderAllTables();
+        renderBestThirds();
+      }
+      if (state.stage === "ko"){
+        renderKO();
+      }
+    }
+
+    // Eventos
+    tabGroups.addEventListener("click", () => { state.stage = "groups"; renderAll(); });
+    tabTables.addEventListener("click", () => { state.stage = "tables"; renderAll(); });
+    tabKO.addEventListener("click", () => { state.stage = "ko"; renderAll(); });
+
+    // Init
+    renderAll();
+  </script>
+</body>
 </html>
